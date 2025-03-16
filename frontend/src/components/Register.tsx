@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Paper,
@@ -8,17 +8,26 @@ import {
   Box,
   Link,
   Alert,
-  MenuItem,
   IconButton,
   InputAdornment,
-  Grid,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  SelectChangeEvent,
   useTheme
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
 import Header from './Header';
+
+interface Club {
+  _id: string;
+  name: string;
+}
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -28,45 +37,82 @@ const Register: React.FC = () => {
     password: '',
     confirmPassword: '',
     studentId: '',
-    userType: 'student'
+    userType: 'student',
+    club: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
+  const [clubs, setClubs] = useState<Club[]>([]);
   const navigate = useNavigate();
   const { register } = useAuth();
   const theme = useTheme();
+
+  useEffect(() => {
+    const fetchClubs = async () => {
+      if (formData.userType === 'clubManager') {
+        try {
+          const response = await axios.get('http://localhost:5001/api/clubs');
+          setClubs(response.data);
+        } catch (error) {
+          console.error('Error fetching clubs:', error);
+          setError('Error fetching clubs. Please try again later.');
+        }
+      }
+    };
+
+    fetchClubs();
+  }, [formData.userType]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
     });
+    setError('');
   };
 
-  const handleClickShowPassword = (field: 'password' | 'confirmPassword') => {
-    if (field === 'password') {
-      setShowPassword(!showPassword);
-    } else {
-      setShowConfirmPassword(!showConfirmPassword);
-    }
+  const handleSelectChange = (e: SelectChangeEvent<string>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+      ...(name === 'userType' && { club: '' })
+    }));
+    setError('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
+    // Validation
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
+      return;
+    }
+
+    if (formData.userType === 'student' && !formData.studentId) {
+      setError('Student ID is required for students');
+      return;
+    }
+
+    if (formData.userType === 'clubManager' && !formData.club) {
+      setError('Please select a club');
       return;
     }
 
     try {
       const { confirmPassword, ...registrationData } = formData;
       await register(registrationData);
-      navigate('/dashboard');
+      navigate('/login');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'An error occurred');
+      setError(err.message || 'An error occurred during registration');
     }
   };
 
@@ -91,7 +137,7 @@ const Register: React.FC = () => {
           }}
         >
           <Paper
-            elevation={0}
+            elevation={3}
             sx={{
               padding: '2rem',
               display: 'flex',
@@ -133,69 +179,90 @@ const Register: React.FC = () => {
               onSubmit={handleSubmit} 
               sx={{ 
                 width: '100%',
-                '& .MuiTextField-root': { mb: 2 }
+                '& .MuiTextField-root, & .MuiFormControl-root': { mb: 2 }
               }}
             >
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
-                  <TextField
-                    required
-                    fullWidth
-                    name="firstName"
-                    label="First Name"
-                    type="text"
-                    id="firstName"
-                    autoFocus
-                    size="small"
-                    value={formData.firstName}
-                    onChange={handleChange}
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    required
-                    fullWidth
-                    name="lastName"
-                    label="Last Name"
-                    type="text"
-                    id="lastName"
-                    size="small"
-                    value={formData.lastName}
-                    onChange={handleChange}
-                  />
-                </Grid>
-              </Grid>
+              <TextField
+                required
+                fullWidth
+                name="firstName"
+                label="First Name"
+                size="small"
+                value={formData.firstName}
+                onChange={handleChange}
+              />
 
               <TextField
                 required
                 fullWidth
-                name="studentId"
-                label="Student ID"
-                type="text"
-                id="studentId"
+                name="lastName"
+                label="Last Name"
                 size="small"
-                value={formData.studentId}
+                value={formData.lastName}
                 onChange={handleChange}
               />
+
               <TextField
                 required
                 fullWidth
                 name="email"
                 label="Email Address"
                 type="email"
-                id="email"
-                autoComplete="email"
                 size="small"
                 value={formData.email}
                 onChange={handleChange}
               />
+
+              <FormControl fullWidth size="small">
+                <InputLabel>User Type</InputLabel>
+                <Select
+                  name="userType"
+                  value={formData.userType}
+                  label="User Type"
+                  onChange={handleSelectChange}
+                >
+                  <MenuItem value="student">Student</MenuItem>
+                  <MenuItem value="clubManager">Club Manager</MenuItem>
+                  <MenuItem value="admin">University Administrator</MenuItem>
+                </Select>
+              </FormControl>
+
+              {formData.userType === 'student' && (
+                <TextField
+                  required
+                  fullWidth
+                  name="studentId"
+                  label="Student ID"
+                  size="small"
+                  value={formData.studentId}
+                  onChange={handleChange}
+                />
+              )}
+
+              {formData.userType === 'clubManager' && (
+                <FormControl fullWidth size="small">
+                  <InputLabel>Club</InputLabel>
+                  <Select
+                    name="club"
+                    value={formData.club}
+                    label="Club"
+                    onChange={handleSelectChange}
+                  >
+                    {clubs.map((club) => (
+                      <MenuItem key={club._id} value={club._id}>
+                        {club.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+
               <TextField
                 required
                 fullWidth
                 name="password"
                 label="Password"
                 type={showPassword ? 'text' : 'password'}
-                id="password"
                 size="small"
                 value={formData.password}
                 onChange={handleChange}
@@ -203,8 +270,7 @@ const Register: React.FC = () => {
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton
-                        aria-label="toggle password visibility"
-                        onClick={() => handleClickShowPassword('password')}
+                        onClick={() => setShowPassword(!showPassword)}
                         edge="end"
                         size="small"
                       >
@@ -214,13 +280,13 @@ const Register: React.FC = () => {
                   ),
                 }}
               />
+
               <TextField
                 required
                 fullWidth
                 name="confirmPassword"
                 label="Confirm Password"
                 type={showConfirmPassword ? 'text' : 'password'}
-                id="confirmPassword"
                 size="small"
                 value={formData.confirmPassword}
                 onChange={handleChange}
@@ -228,8 +294,7 @@ const Register: React.FC = () => {
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton
-                        aria-label="toggle password visibility"
-                        onClick={() => handleClickShowPassword('confirmPassword')}
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                         edge="end"
                         size="small"
                       >
@@ -239,50 +304,18 @@ const Register: React.FC = () => {
                   ),
                 }}
               />
-              <TextField
-                select
-                required
-                fullWidth
-                name="userType"
-                label="User Type"
-                id="userType"
-                size="small"
-                value={formData.userType}
-                onChange={handleChange}
-                sx={{ mb: 2 }}
-              >
-                <MenuItem value="student">Student</MenuItem>
-                <MenuItem value="clubManager">Club Manager</MenuItem>
-                <MenuItem value="clubAdvisor">Club Advisor</MenuItem>
-              </TextField>
+
               <Button
                 type="submit"
                 fullWidth
                 variant="contained"
-                sx={{
-                  mt: 1,
-                  mb: 2,
-                  py: 1.2,
-                  backgroundColor: theme.palette.primary.main,
-                  '&:hover': {
-                    backgroundColor: theme.palette.primary.dark,
-                  }
-                }}
+                sx={{ mt: 2, mb: 2 }}
               >
                 Create Account
               </Button>
+
               <Box sx={{ textAlign: 'center' }}>
-                <Link
-                  href="/login"
-                  variant="body2"
-                  sx={{
-                    color: theme.palette.primary.main,
-                    textDecoration: 'none',
-                    '&:hover': {
-                      textDecoration: 'underline',
-                    }
-                  }}
-                >
+                <Link component={RouterLink} to="/login" variant="body2">
                   Already have an account? Sign in
                 </Link>
               </Box>

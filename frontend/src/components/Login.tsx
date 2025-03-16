@@ -14,9 +14,10 @@ import {
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Header from './Header';
+import axios from 'axios';
 
 const Login: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -25,6 +26,7 @@ const Login: React.FC = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
   const theme = useTheme();
@@ -34,6 +36,7 @@ const Login: React.FC = () => {
       ...formData,
       [e.target.name]: e.target.value
     });
+    setError('');
   };
 
   const handleClickShowPassword = () => {
@@ -43,11 +46,45 @@ const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
+
     try {
+      if (!formData.email || !formData.password) {
+        setError('Please fill in all fields');
+        setIsLoading(false);
+        return;
+      }
+
+      // Call login and wait for it to complete
       await login(formData.email, formData.password);
-      navigate('/dashboard');
+      
+      // Get the current user data from localStorage
+      const token = localStorage.getItem('token');
+      if (token) {
+        const response = await axios.get('http://localhost:5001/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        const userRole = response.data.role;
+        
+        // Redirect based on user role
+        switch (userRole) {
+          case 'admin':
+            navigate('/admin/calendar');
+            break;
+          case 'clubManager':
+            navigate('/manager/calendar');
+            break;
+          default:
+            navigate('/calendar');
+            break;
+        }
+      }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'An error occurred');
+      console.error('Login error:', err);
+      setError(err.message || 'Invalid credentials. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -72,7 +109,7 @@ const Login: React.FC = () => {
           }}
         >
           <Paper
-            elevation={0}
+            elevation={3}
             sx={{
               padding: '2rem',
               display: 'flex',
@@ -128,6 +165,7 @@ const Login: React.FC = () => {
                 size="small"
                 value={formData.email}
                 onChange={handleChange}
+                error={!!error}
               />
               <TextField
                 required
@@ -140,6 +178,7 @@ const Login: React.FC = () => {
                 size="small"
                 value={formData.password}
                 onChange={handleChange}
+                error={!!error}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
@@ -159,6 +198,7 @@ const Login: React.FC = () => {
                 type="submit"
                 fullWidth
                 variant="contained"
+                disabled={isLoading}
                 sx={{
                   mt: 1,
                   mb: 2,
@@ -169,11 +209,12 @@ const Login: React.FC = () => {
                   }
                 }}
               >
-                Sign In
+                {isLoading ? 'Signing in...' : 'Sign In'}
               </Button>
               <Box sx={{ textAlign: 'center' }}>
                 <Link
-                  href="/register"
+                  component={RouterLink}
+                  to="/register"
                   variant="body2"
                   sx={{
                     color: theme.palette.primary.main,
