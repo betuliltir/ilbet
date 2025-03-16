@@ -1,35 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Paper,
   TextField,
   Button,
-  Typography,
   Box,
   Link,
   Alert,
-  IconButton,
-  InputAdornment,
-  useTheme
+  Typography,
+  Divider,
 } from '@mui/material';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import Header from './Header';
-import axios from 'axios';
 
 const Login: React.FC = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
-  const theme = useTheme();
+  const { login, user, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.role === 'admin') {
+        navigate('/admin/calendar');
+      } else if (user.role === 'clubManager') {
+        navigate('/manager/calendar');
+      } else {
+        navigate('/calendar');
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -37,10 +41,6 @@ const Login: React.FC = () => {
       [e.target.name]: e.target.value
     });
     setError('');
-  };
-
-  const handleClickShowPassword = () => {
-    setShowPassword(!showPassword);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,183 +55,150 @@ const Login: React.FC = () => {
         return;
       }
 
-      // Call login and wait for it to complete
       await login(formData.email, formData.password);
-      
-      // Get the current user data from localStorage
-      const token = localStorage.getItem('token');
-      if (token) {
-        const response = await axios.get('http://localhost:5001/api/auth/me', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        const userRole = response.data.role;
-        
-        // Redirect based on user role
-        switch (userRole) {
-          case 'admin':
-            navigate('/admin/calendar');
-            break;
-          case 'clubManager':
-            navigate('/manager/calendar');
-            break;
-          default:
-            navigate('/calendar');
-            break;
-        }
-      }
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err.message || 'Invalid credentials. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        backgroundColor: theme.palette.background.default,
-      }}
-    >
-      <Container component="main" maxWidth="xs">
-        <Box
-          sx={{
-            minHeight: '100vh',
+    <Container component="main" maxWidth="xs">
+      <Box
+        sx={{
+          marginTop: 8,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+      >
+        <Paper 
+          elevation={3} 
+          sx={{ 
+            p: 4, 
+            width: '100%', 
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            py: 3
+            borderRadius: 2,
           }}
         >
-          <Paper
-            elevation={3}
+          {/* Inter-Club Text */}
+          <Typography
+            variant="h4"
             sx={{
-              padding: '2rem',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              width: '100%',
-              maxWidth: '400px',
-              backgroundColor: theme.palette.background.paper,
+              color: '#1a237e',
+              mb: 4,
+              fontWeight: 500,
             }}
           >
-            <Header />
-            <Typography 
-              component="h1" 
-              variant="h6" 
-              sx={{ 
-                mb: 3,
-                color: theme.palette.primary.main,
-                fontWeight: 600
-              }}
-            >
-              Welcome Back
-            </Typography>
+            Inter-Club
+          </Typography>
 
-            {error && (
-              <Alert 
-                severity="error" 
-                sx={{ 
-                  width: '100%', 
-                  mb: 2,
-                  borderRadius: '8px'
-                }}
-              >
-                {error}
-              </Alert>
-            )}
+          {/* Sign In Text */}
+          <Typography
+            variant="h5"
+            sx={{
+              mb: 3,
+              fontWeight: 500,
+            }}
+          >
+            Sign In
+          </Typography>
 
-            <Box 
-              component="form" 
-              onSubmit={handleSubmit} 
-              sx={{ 
-                width: '100%',
-                '& .MuiTextField-root': { mb: 2 }
+          {error && (
+            <Alert severity="error" sx={{ mb: 2, width: '100%' }}>
+              {error}
+            </Alert>
+          )}
+
+          <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              id="email"
+              label="Email Address"
+              name="email"
+              autoComplete="email"
+              autoFocus
+              value={formData.email}
+              onChange={handleChange}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                },
               }}
+            />
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              name="password"
+              label="Password"
+              type="password"
+              id="password"
+              autoComplete="current-password"
+              value={formData.password}
+              onChange={handleChange}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                },
+              }}
+            />
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              sx={{
+                mt: 3,
+                mb: 2,
+                py: 1.5,
+                backgroundColor: '#1a237e',
+                borderRadius: 2,
+                '&:hover': {
+                  backgroundColor: '#0d47a1',
+                },
+              }}
+              disabled={isLoading}
             >
-              <TextField
-                required
-                fullWidth
-                id="email"
-                label="Email Address"
-                name="email"
-                autoComplete="email"
-                autoFocus
-                size="small"
-                value={formData.email}
-                onChange={handleChange}
-                error={!!error}
-              />
-              <TextField
-                required
-                fullWidth
-                name="password"
-                label="Password"
-                type={showPassword ? 'text' : 'password'}
-                id="password"
-                autoComplete="current-password"
-                size="small"
-                value={formData.password}
-                onChange={handleChange}
-                error={!!error}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label="toggle password visibility"
-                        onClick={handleClickShowPassword}
-                        edge="end"
-                        size="small"
-                      >
-                        {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
+              {isLoading ? 'Signing in...' : 'Sign In'}
+            </Button>
+
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center',
+              gap: 2,
+            }}>
+              <Typography variant="body1" sx={{ color: 'text.secondary' }}>
+                or
+              </Typography>
               <Button
-                type="submit"
+                component={RouterLink}
+                to="/register"
+                variant="outlined"
                 fullWidth
-                variant="contained"
-                disabled={isLoading}
                 sx={{
-                  mt: 1,
-                  mb: 2,
-                  py: 1.2,
-                  backgroundColor: theme.palette.primary.main,
+                  borderRadius: 2,
+                  py: 1.5,
+                  borderColor: '#1a237e',
+                  color: '#1a237e',
                   '&:hover': {
-                    backgroundColor: theme.palette.primary.dark,
-                  }
+                    borderColor: '#0d47a1',
+                    backgroundColor: 'rgba(13, 71, 161, 0.04)',
+                  },
                 }}
               >
-                {isLoading ? 'Signing in...' : 'Sign In'}
+                Don't have an account? Sign up
               </Button>
-              <Box sx={{ textAlign: 'center' }}>
-                <Link
-                  component={RouterLink}
-                  to="/register"
-                  variant="body2"
-                  sx={{
-                    color: theme.palette.primary.main,
-                    textDecoration: 'none',
-                    '&:hover': {
-                      textDecoration: 'underline',
-                    }
-                  }}
-                >
-                  Don't have an account? Sign up
-                </Link>
-              </Box>
             </Box>
-          </Paper>
-        </Box>
-      </Container>
-    </Box>
+          </Box>
+        </Paper>
+      </Box>
+    </Container>
   );
 };
 

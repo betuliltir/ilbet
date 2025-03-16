@@ -1,165 +1,257 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Container,
-  Typography,
-  Button,
   Grid,
   Paper,
-  useTheme,
+  Typography,
+  Button,
+  AppBar,
+  Toolbar,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+  Stack,
 } from '@mui/material';
+import {
+  CalendarToday,
+  Group,
+  Feedback,
+  ArrowForward,
+} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import Header from './Header';
+import axios from 'axios';
+
+interface AnnouncementType {
+  _id: string;
+  title: string;
+  summary: string;
+  createdAt: string;
+  author: {
+    name: string;
+  };
+}
+
+interface EventType {
+  _id: string;
+  title: string;
+  date: string;
+  time: string;
+  location: string;
+  registrationLink: string;
+  category: string;
+}
+
+interface NewsType {
+  _id: string;
+  title: string;
+  content: string;
+  imageUrl?: string;
+  category: string;
+  createdAt: string;
+}
 
 const HomePage: React.FC = () => {
+  const [announcements, setAnnouncements] = useState<AnnouncementType[]>([]);
+  const [events, setEvents] = useState<EventType[]>([]);
+  const [news, setNews] = useState<NewsType[]>([]);
   const navigate = useNavigate();
-  const theme = useTheme();
+
+  useEffect(() => {
+    const fetchHomeData = async () => {
+      try {
+        const response = await axios.get('http://localhost:5001/api/home');
+        setAnnouncements(response.data.announcements);
+        setEvents(response.data.events);
+        setNews(response.data.news);
+      } catch (error) {
+        console.error('Error fetching home data:', error);
+      }
+    };
+
+    fetchHomeData();
+  }, []);
+
+  const quickAccessLinks = [
+    { text: 'Event Calendar', icon: <CalendarToday />, path: '/calendar' },
+    { text: 'Club Membership', icon: <Group />, path: '/membership' },
+    { text: 'Feedback Form', icon: <Feedback />, path: '/feedback' },
+  ];
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      <Header />
-      
-      {/* Hero Section */}
-      <Box
-        sx={{
-          bgcolor: 'primary.main',
-          color: 'primary.contrastText',
-          py: 8,
-          mb: 6,
-        }}
-      >
-        <Container maxWidth="lg">
-          <Grid container spacing={4} alignItems="center">
-            <Grid item xs={12} md={6}>
-              <Typography variant="h2" component="h1" gutterBottom>
-                Welcome to iClub
-              </Typography>
-              <Typography variant="h5" paragraph>
-                Your Ultimate University Club Management Platform
-              </Typography>
-              <Box sx={{ mt: 4 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+      {/* Header */}
+      <AppBar position="static" color="default" elevation={0}>
+        <Toolbar sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
+            {/* Logo */}
+            <Box
+              component="img"
+              src="/logo.png"
+              alt="Logo"
+              sx={{ height: 40, mr: 2 }}
+            />
+            {/* Navigation Links */}
+            <Stack direction="row" spacing={2}>
+              {['Home', 'Clubs', 'Events', 'About'].map((item) => (
                 <Button
-                  variant="contained"
-                  color="secondary"
-                  size="large"
-                  onClick={() => navigate('/login')}
-                  sx={{ mr: 2 }}
-                >
-                  Sign In
-                </Button>
-                <Button
-                  variant="outlined"
+                  key={item}
                   color="inherit"
-                  size="large"
-                  onClick={() => navigate('/register')}
+                  onClick={() => navigate(`/${item.toLowerCase()}`)}
                 >
-                  Register
+                  {item}
                 </Button>
-              </Box>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              {/* You can add an illustration or image here */}
-            </Grid>
-          </Grid>
-        </Container>
-      </Box>
+              ))}
+            </Stack>
+          </Box>
+          <Button variant="outlined" color="primary" onClick={() => navigate('/login')}>
+            Login
+          </Button>
+        </Toolbar>
+      </AppBar>
 
-      {/* Features Section */}
-      <Container maxWidth="lg" sx={{ mb: 8 }}>
-        <Grid container spacing={4}>
-          <Grid item xs={12} md={4}>
-            <Paper
-              elevation={3}
-              sx={{
-                p: 3,
-                height: '100%',
-                transition: 'transform 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                },
-              }}
-            >
-              <Typography variant="h5" gutterBottom color="primary">
-                For Students
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Grid container spacing={3}>
+          {/* Quick Access Links */}
+          <Grid item xs={12} md={3}>
+            <Paper sx={{ p: 2, height: '100%' }}>
+              <Typography variant="h6" gutterBottom>
+                Quick Access Links
               </Typography>
-              <Typography>
-                • Browse and join university clubs<br />
-                • Register for club events<br />
-                • Track your club activities<br />
-                • Connect with fellow members
-              </Typography>
+              <List>
+                {quickAccessLinks.map((item) => (
+                  <ListItem
+                    key={item.text}
+                    component="a"
+                    onClick={() => navigate(item.path)}
+                    sx={{
+                      borderRadius: 1,
+                      mb: 1,
+                      cursor: 'pointer',
+                      '&:hover': {
+                        bgcolor: 'primary.light',
+                        color: 'primary.contrastText',
+                      },
+                    }}
+                  >
+                    <Box sx={{ mr: 2 }}>{item.icon}</Box>
+                    <ListItemText primary={item.text} />
+                  </ListItem>
+                ))}
+              </List>
             </Paper>
           </Grid>
-          <Grid item xs={12} md={4}>
-            <Paper
-              elevation={3}
-              sx={{
-                p: 3,
-                height: '100%',
-                transition: 'transform 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                },
-              }}
-            >
-              <Typography variant="h5" gutterBottom color="primary">
-                For Club Managers
+
+          {/* Announcements */}
+          <Grid item xs={12} md={6}>
+            <Paper sx={{ p: 2, height: '100%' }}>
+              <Typography variant="h6" gutterBottom>
+                Announcements
               </Typography>
-              <Typography>
-                • Manage club events<br />
-                • Track member attendance<br />
-                • Organize club activities<br />
-                • Communicate with members
-              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              {announcements.map((announcement) => (
+                <Box key={announcement._id} sx={{ mb: 3 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                    {announcement.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ my: 1 }}>
+                    {announcement.summary}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    Posted by {announcement.author.name} on{' '}
+                    {new Date(announcement.createdAt).toLocaleDateString()}
+                  </Typography>
+                </Box>
+              ))}
             </Paper>
           </Grid>
-          <Grid item xs={12} md={4}>
-            <Paper
-              elevation={3}
-              sx={{
-                p: 3,
-                height: '100%',
-                transition: 'transform 0.2s',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                },
-              }}
-            >
-              <Typography variant="h5" gutterBottom color="primary">
-                For Administrators
-              </Typography>
-              <Typography>
-                • Oversee all club activities<br />
-                • Approve club events<br />
-                • Manage club registrations<br />
-                • Generate activity reports
-              </Typography>
-            </Paper>
+
+          {/* Right Column: Events and News */}
+          <Grid item xs={12} md={3}>
+            <Stack spacing={3}>
+              {/* Upcoming Events */}
+              <Paper sx={{ p: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6">Upcoming Events</Typography>
+                  <Button
+                    endIcon={<ArrowForward />}
+                    onClick={() => navigate('/events')}
+                    size="small"
+                  >
+                    View All
+                  </Button>
+                </Box>
+                <Divider sx={{ mb: 2 }} />
+                {events.map((event) => (
+                  <Box key={event._id} sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                      {event.title}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {new Date(event.date).toLocaleDateString()} at {event.time}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      {event.location}
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      href={event.registrationLink}
+                      target="_blank"
+                      fullWidth
+                    >
+                      Register
+                    </Button>
+                  </Box>
+                ))}
+              </Paper>
+
+              {/* Club News Highlights */}
+              <Paper sx={{ p: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6">Club News</Typography>
+                  <Button
+                    endIcon={<ArrowForward />}
+                    onClick={() => navigate('/news')}
+                    size="small"
+                  >
+                    View All
+                  </Button>
+                </Box>
+                <Divider sx={{ mb: 2 }} />
+                {news.map((item) => (
+                  <Box key={item._id} sx={{ mb: 2 }}>
+                    {item.imageUrl && (
+                      <Box
+                        component="img"
+                        src={item.imageUrl}
+                        alt={item.title}
+                        sx={{
+                          width: '100%',
+                          height: 120,
+                          objectFit: 'cover',
+                          borderRadius: 1,
+                          mb: 1,
+                        }}
+                      />
+                    )}
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                      {item.title}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {item.content.substring(0, 80)}...
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      {new Date(item.createdAt).toLocaleDateString()}
+                    </Typography>
+                  </Box>
+                ))}
+              </Paper>
+            </Stack>
           </Grid>
         </Grid>
       </Container>
-
-      {/* Call to Action */}
-      <Box sx={{ bgcolor: 'grey.100', py: 8 }}>
-        <Container maxWidth="md">
-          <Typography variant="h4" align="center" gutterBottom>
-            Ready to Get Started?
-          </Typography>
-          <Typography variant="subtitle1" align="center" paragraph>
-            Join iClub today and be part of our vibrant university community.
-          </Typography>
-          <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
-            <Button
-              variant="contained"
-              color="primary"
-              size="large"
-              onClick={() => navigate('/register')}
-            >
-              Create an Account
-            </Button>
-          </Box>
-        </Container>
-      </Box>
     </Box>
   );
 };
