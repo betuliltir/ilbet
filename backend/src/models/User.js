@@ -25,13 +25,17 @@ const userSchema = new mongoose.Schema({
   },
   studentId: {
     type: String,
-    required: true,
-    unique: true
+    required: function() { return this.role === 'student'; }
   },
-  userType: {
+  role: {
     type: String,
-    required: true,
-    enum: ['student', 'clubManager', 'clubAdvisor']
+    enum: ['student', 'clubManager', 'clubAdvisor', 'admin'],
+    required: true
+  },
+  club: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Club',
+    required: function() { return this.role === 'clubManager'; }
   },
   createdAt: {
     type: Date,
@@ -39,16 +43,26 @@ const userSchema = new mongoose.Schema({
   }
 });
 
-// Hash password before saving
+// Hash password before saving only if it's modified
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 10);
-  next();
+  
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
 
 // Method to compare password
 userSchema.methods.comparePassword = async function(candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.password);
+  try {
+    return await bcrypt.compare(candidatePassword, this.password);
+  } catch (error) {
+    throw error;
+  }
 };
 
 const User = mongoose.model('User', userSchema);
