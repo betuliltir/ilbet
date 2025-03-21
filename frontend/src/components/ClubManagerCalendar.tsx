@@ -30,7 +30,7 @@ import { useAuth } from '../context/AuthContext';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { DatePicker, TimePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { 
@@ -175,33 +175,70 @@ const ClubManagerCalendar: React.FC = () => {
     setIsEventFormOpen(true);
   };
 
+  const formatTime = (time: string) => {
+    // Add leading zeros if needed
+    const [hours, minutes] = time.split(':');
+    const paddedHours = hours.padStart(2, '0');
+    const paddedMinutes = minutes ? minutes.padStart(2, '0') : '00';
+    return `${paddedHours}:${paddedMinutes}`;
+  };
+
   const handleEventFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!eventFormData.date || !eventFormData.time || !eventFormData.title || !eventFormData.description || !eventFormData.location || !eventFormData.eventType) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
     try {
+      // Ensure time is in HH:mm format
+      let timeValue;
+      if (typeof eventFormData.time === 'string') {
+        timeValue = eventFormData.time;
+      } else {
+        const timeObj = dayjs(eventFormData.time);
+        timeValue = timeObj.format('HH:mm');
+      }
+
       const eventData = {
-        ...eventFormData,
+        title: eventFormData.title,
+        description: eventFormData.description,
+        location: eventFormData.location,
+        date: eventFormData.date.format('YYYY-MM-DD'),
+        time: timeValue,
+        eventType: eventFormData.eventType,
+        registrationLink: eventFormData.registrationLink || '',
+        feedbackLink: eventFormData.feedbackLink || '',
         club: user?.club,
-        date: eventFormData.date?.format('YYYY-MM-DD'),
+        createdBy: user?._id, // Add createdBy field
+        status: 'pending'
       };
 
+      console.log('Submitting event data:', eventData);
+
       if (isEditMode && selectedEvent) {
-        await axios.put(`http://localhost:5001/api/events/${selectedEvent.id}`, eventData, {
+        const response = await axios.put(`http://localhost:5001/api/events/${selectedEvent.id}`, eventData, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`
           }
         });
+        console.log('Update response:', response.data);
       } else {
-        await axios.post('http://localhost:5001/api/events', eventData, {
+        const response = await axios.post('http://localhost:5001/api/events', eventData, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`
           }
         });
+        console.log('Create response:', response.data);
       }
 
       setIsEventFormOpen(false);
       fetchEvents();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving event:', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Error creating event';
+      alert(errorMessage);
     }
   };
 
@@ -586,15 +623,21 @@ const ClubManagerCalendar: React.FC = () => {
                     slotProps={{ textField: { fullWidth: true } }}
                   />
                 </LocalizationProvider>
-                <TextField
-                  required
-                  label="Time"
-                  value={eventFormData.time}
-                  onChange={(e) => handleEventFormChange('time', e.target.value)}
-                  fullWidth
-                  type="time"
-                  InputLabelProps={{ shrink: true }}
-                />
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <TimePicker
+                    label="Time"
+                    value={eventFormData.time ? dayjs(eventFormData.time) : null}
+                    onChange={(newValue) => handleEventFormChange('time', newValue)}
+                    slotProps={{ 
+                      textField: { 
+                        fullWidth: true,
+                        required: true
+                      } 
+                    }}
+                    ampm={false}
+                    minutesStep={5}
+                  />
+                </LocalizationProvider>
                 <FormControl fullWidth>
                   <InputLabel>Event Type</InputLabel>
                   <Select

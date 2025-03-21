@@ -261,7 +261,9 @@ const EventCalendar: React.FC = () => {
   const handleResetFilters = () => {
     setSelectedClub('');
     setSelectedEventType('');
-    setSelectedApprovalStatus('');
+    if (user?.role === 'clubManager') {
+      setSelectedApprovalStatus('');
+    }
     setStartDate(null);
     setEndDate(null);
   };
@@ -349,7 +351,7 @@ const EventCalendar: React.FC = () => {
                   Filters
                 </Typography>
                 <Grid container spacing={2} alignItems="center">
-                  <Grid item xs={12} md={2}>
+                  <Grid item xs={12} md={user?.role === 'clubManager' ? 2 : 3}>
                     <FormControl fullWidth size="small">
                       <InputLabel>Select a Club</InputLabel>
                       <Select
@@ -366,7 +368,7 @@ const EventCalendar: React.FC = () => {
                       </Select>
                     </FormControl>
                   </Grid>
-                  <Grid item xs={12} md={2}>
+                  <Grid item xs={12} md={user?.role === 'clubManager' ? 2 : 3}>
                     <FormControl fullWidth size="small">
                       <InputLabel>Event Type</InputLabel>
                       <Select
@@ -383,22 +385,24 @@ const EventCalendar: React.FC = () => {
                       </Select>
                     </FormControl>
                   </Grid>
-                  <Grid item xs={12} md={2}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Approval Status</InputLabel>
-                      <Select
-                        value={selectedApprovalStatus}
-                        label="Approval Status"
-                        onChange={handleStatusChange}
-                      >
-                        <MenuItem value="">All Status</MenuItem>
-                        <MenuItem value="pending">Pending</MenuItem>
-                        <MenuItem value="approved">Approved</MenuItem>
-                        <MenuItem value="changes_requested">Changes Requested</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} md={2}>
+                  {user?.role === 'clubManager' && (
+                    <Grid item xs={12} md={2}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Approval Status</InputLabel>
+                        <Select
+                          value={selectedApprovalStatus}
+                          label="Approval Status"
+                          onChange={handleStatusChange}
+                        >
+                          <MenuItem value="">All Status</MenuItem>
+                          <MenuItem value="pending">Pending</MenuItem>
+                          <MenuItem value="approved">Approved</MenuItem>
+                          <MenuItem value="changes_requested">Changes Requested</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  )}
+                  <Grid item xs={12} md={user?.role === 'clubManager' ? 2 : 3}>
                     <LocalizationProvider dateAdapter={AdapterDayjs}>
                       <DatePicker
                         label="Start Date"
@@ -408,7 +412,7 @@ const EventCalendar: React.FC = () => {
                       />
                     </LocalizationProvider>
                   </Grid>
-                  <Grid item xs={12} md={2}>
+                  <Grid item xs={12} md={user?.role === 'clubManager' ? 2 : 3}>
                     <LocalizationProvider dateAdapter={AdapterDayjs}>
                       <DatePicker
                         label="End Date"
