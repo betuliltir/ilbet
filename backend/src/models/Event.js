@@ -19,7 +19,13 @@ const eventSchema = new mongoose.Schema({
   },
   time: {
     type: String,
-    required: true
+    required: true,
+    validate: {
+      validator: function(v) {
+        return /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(v);
+      },
+      message: props => `${props.value} is not a valid time format! Use HH:mm`
+    }
   },
   club: {
     type: mongoose.Schema.Types.ObjectId,
@@ -33,7 +39,7 @@ const eventSchema = new mongoose.Schema({
   },
   registrationLink: {
     type: String,
-    required: true
+    required: false
   },
   feedbackLink: {
     type: String
