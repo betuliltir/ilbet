@@ -24,6 +24,7 @@ import {
   ListItemIcon,
   IconButton,
   TextField,
+  Alert,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -92,6 +93,8 @@ const ClubManagerCalendar: React.FC = () => {
   const [selectedApprovalStatus, setSelectedApprovalStatus] = useState('');
   const [startDate, setStartDate] = useState<Dayjs | null>(null);
   const [endDate, setEndDate] = useState<Dayjs | null>(null);
+  const [error, setError] = useState<string>('');
+  const [successMessage, setSuccessMessage] = useState<string>('');
   const [eventFormData, setEventFormData] = useState<EventFormData>({
     title: '',
     description: '',
@@ -117,24 +120,38 @@ const ClubManagerCalendar: React.FC = () => {
 
   const fetchEvents = useCallback(async () => {
     try {
-      let url = 'http://localhost:5001/api/events?';
       const params = new URLSearchParams();
-
-      if (selectedEventType) params.append('eventType', selectedEventType);
       if (selectedApprovalStatus) params.append('status', selectedApprovalStatus);
-      if (startDate) params.append('startDate', startDate.format('YYYY-MM-DD'));
-      if (endDate) params.append('endDate', endDate.format('YYYY-MM-DD'));
-
-      const response = await axios.get(url + params.toString(), {
+      
+      const response = await axios.get(`http://localhost:5001/api/events?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
         }
       });
-      setEvents(response.data);
+
+      const formattedEvents = response.data.map((event: any) => ({
+        id: event._id,
+        title: event.title,
+        start: `${event.date.split('T')[0]}T${event.time}`,
+        end: `${event.date.split('T')[0]}T${event.time}`,
+        extendedProps: {
+          description: event.description,
+          location: event.location,
+          time: event.time,
+          eventType: event.eventType,
+          registrationLink: event.registrationLink,
+          feedbackLink: event.feedbackLink,
+          approvalStatus: event.status,
+          approvalNotes: event.approvalNotes
+        }
+      }));
+
+      setEvents(formattedEvents);
     } catch (error) {
       console.error('Error fetching events:', error);
+      setError('Failed to fetch events. Please try again later.');
     }
-  }, [selectedEventType, selectedApprovalStatus, startDate, endDate]);
+  }, [selectedApprovalStatus]);
 
   useEffect(() => {
     fetchEvents();
@@ -235,6 +252,7 @@ const ClubManagerCalendar: React.FC = () => {
 
       setIsEventFormOpen(false);
       fetchEvents();
+      setSuccessMessage('Event saved successfully!');
     } catch (error: any) {
       console.error('Error saving event:', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Error creating event';
@@ -345,6 +363,17 @@ const ClubManagerCalendar: React.FC = () => {
       </AppBar>
 
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+            {error}
+          </Alert>
+        )}
+        {successMessage && (
+          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccessMessage('')}>
+            {successMessage}
+          </Alert>
+        )}
+
         <Grid container spacing={3}>
           {/* Quick Access Links */}
           <Grid item xs={12} md={3}>
@@ -408,7 +437,7 @@ const ClubManagerCalendar: React.FC = () => {
                       <Select
                         value={selectedApprovalStatus}
                         label="Approval Status"
-                        onChange={handleStatusChange}
+                        onChange={(e) => setSelectedApprovalStatus(e.target.value)}
                       >
                         <MenuItem value="">All Status</MenuItem>
                         <MenuItem value="pending">Pending</MenuItem>
@@ -482,14 +511,20 @@ const ClubManagerCalendar: React.FC = () => {
                 initialView={viewMode}
                 events={events}
                 eventClick={handleEventClick}
-                eventContent={(arg) => {
-                  return (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      {getStatusIcon(arg.event.extendedProps.approvalStatus)}
-                      <span>{arg.event.title}</span>
-                    </Box>
-                  );
-                }}
+                eventContent={(eventInfo) => ({
+                  html: `
+                    <div class="fc-content" style="display: flex; align-items: center; gap: 4px;">
+                      <div style="width: 8px; height: 8px; border-radius: 50%; background-color: ${
+                        eventInfo.event.extendedProps.approvalStatus === 'approved'
+                          ? '#4caf50'
+                          : eventInfo.event.extendedProps.approvalStatus === 'changes_requested'
+                          ? '#f44336'
+                          : '#ff9800'
+                      };"></div>
+                      <div>${eventInfo.event.title}</div>
+                    </div>
+                  `
+                })}
                 headerToolbar={false}
                 height="auto"
               />
@@ -587,7 +622,12 @@ const ClubManagerCalendar: React.FC = () => {
           fullWidth
         >
           <DialogTitle>
-            {isEditMode ? 'Edit Event' : 'Add New Event'}
+            {isEditMode ? 'Edit Event' : 'Create New Event'}
+            {selectedEvent && selectedEvent.extendedProps.approvalStatus === 'changes_requested' && (
+              <Typography color="error" variant="caption" display="block">
+                Changes Requested: {selectedEvent.extendedProps.approvalNotes}
+              </Typography>
+            )}
           </DialogTitle>
           <form onSubmit={handleEventFormSubmit}>
             <DialogContent>

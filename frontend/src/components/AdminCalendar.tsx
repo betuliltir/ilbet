@@ -25,6 +25,7 @@ import {
   IconButton,
   TextField,
   ButtonGroup,
+  Alert,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -47,6 +48,7 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import dayjs, { Dayjs } from 'dayjs';
+import { Link } from '@mui/material';
 
 interface Event {
   id: string;
@@ -88,6 +90,8 @@ const AdminCalendar: React.FC = () => {
   const [approvalNotes, setApprovalNotes] = useState('');
   const [viewMode, setViewMode] = useState<'dayGridMonth' | 'dayGridWeek'>('dayGridMonth');
   const [currentDate, setCurrentDate] = useState<Dayjs>(dayjs());
+  const [error, setError] = useState<string>('');
+  const [successMessage, setSuccessMessage] = useState<string>('');
 
   const navigate = useNavigate();
   const { logout, user } = useAuth();
@@ -97,6 +101,47 @@ const AdminCalendar: React.FC = () => {
     { text: 'Club Management', icon: <Group />, path: '/admin/clubs' },
     { text: 'Feedback Overview', icon: <Feedback />, path: '/admin/feedback' },
   ];
+
+  const fetchEvents = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (selectedClub) params.append('club', selectedClub);
+      if (selectedEventType) params.append('eventType', selectedEventType);
+      if (selectedApprovalStatus) params.append('status', selectedApprovalStatus);
+      if (startDate) params.append('startDate', startDate.format('YYYY-MM-DD'));
+      if (endDate) params.append('endDate', endDate.format('YYYY-MM-DD'));
+
+      const response = await axios.get(`http://localhost:5001/api/events?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      const formattedEvents = response.data.map((event: any) => ({
+        id: event._id,
+        title: event.title,
+        start: `${event.date.split('T')[0]}T${event.time}`,
+        end: `${event.date.split('T')[0]}T${event.time}`,
+        status: event.status,
+        extendedProps: {
+          description: event.description,
+          location: event.location,
+          time: event.time,
+          club: event.club,
+          eventType: event.eventType,
+          registrationLink: event.registrationLink,
+          feedbackLink: event.feedbackLink,
+          approvalStatus: event.status,
+          approvalNotes: event.approvalNotes,
+        }
+      }));
+
+      setEvents(formattedEvents);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+      setError('Failed to fetch events. Please try again later.');
+    }
+  }, [selectedClub, selectedEventType, selectedApprovalStatus, startDate, endDate]);
 
   const fetchClubs = useCallback(async () => {
     try {
@@ -108,35 +153,31 @@ const AdminCalendar: React.FC = () => {
       setClubs(response.data);
     } catch (error) {
       console.error('Error fetching clubs:', error);
+      setError('Failed to fetch clubs. Please try again later.');
     }
   }, []);
 
-  const fetchEvents = useCallback(async () => {
-    try {
-      let url = 'http://localhost:5001/api/events?';
-      const params = new URLSearchParams();
-
-      if (selectedClub) params.append('club', selectedClub);
-      if (selectedEventType) params.append('eventType', selectedEventType);
-      if (selectedApprovalStatus) params.append('status', selectedApprovalStatus);
-      if (startDate) params.append('startDate', startDate.format('YYYY-MM-DD'));
-      if (endDate) params.append('endDate', endDate.format('YYYY-MM-DD'));
-
-      const response = await axios.get(url + params.toString(), {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      setEvents(response.data);
-    } catch (error) {
-      console.error('Error fetching events:', error);
-    }
-  }, [selectedClub, selectedEventType, selectedApprovalStatus, startDate, endDate]);
+  useEffect(() => {
+    fetchEvents();
+    fetchClubs();
+  }, [fetchEvents, fetchClubs]);
 
   useEffect(() => {
-    fetchClubs();
-    fetchEvents();
-  }, [fetchClubs, fetchEvents]);
+    if (!user) {
+      console.log('No user found');
+      navigate('/login');
+      return;
+    }
+
+    if (user.role !== 'admin') {
+      console.log('User role:', user.role);
+      console.log('Not an admin, redirecting...');
+      navigate('/calendar');
+      return;
+    }
+
+    console.log('Admin user verified:', user);
+  }, [user, navigate]);
 
   const handleEventClick = (info: any) => {
     setSelectedEvent(info.event);
@@ -144,41 +185,109 @@ const AdminCalendar: React.FC = () => {
     setIsDialogOpen(true);
   };
 
-  const handleUpdateEventStatus = async (status: 'approved' | 'changes_requested') => {
+  const handleApproveEvent = async () => {
     if (!selectedEvent) return;
-
+    
+    if (!user || user.role !== 'admin') {
+      setError('You must be an admin to perform this action');
+      return;
+    }
+    
     try {
-      await axios.patch(
+      console.log('Approving event:', selectedEvent.id);
+      console.log('User role:', user.role);
+      console.log('Token:', localStorage.getItem('token'));
+      
+      const response = await axios.patch(
         `http://localhost:5001/api/events/${selectedEvent.id}/status`,
         {
-          status,
-          approvalNotes
+          status: 'approved',
+          approvalNotes: approvalNotes || ''
         },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
           }
         }
       );
-
-      setIsDialogOpen(false);
-      fetchEvents();
-    } catch (error) {
-      console.error('Error updating event status:', error);
+      
+      console.log('Approval response:', response.data);
+      setSuccessMessage('Event approved successfully');
+      await fetchEvents();
+      handleCloseDialog();
+    } catch (error: any) {
+      console.error('Error approving event:', error);
+      if (error.response?.status === 403) {
+        setError('You do not have permission to approve events. Please make sure you are logged in as an admin.');
+        setTimeout(() => {
+          logout();
+          navigate('/login');
+        }, 3000);
+      } else {
+        setError(error.response?.data?.message || 'Failed to approve event. Please try again.');
+      }
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return <ApprovedIcon color="success" />;
-      case 'pending':
-        return <PendingIcon color="warning" />;
-      case 'changes_requested':
-        return <ChangesRequestedIcon color="error" />;
-      default:
-        return null;
+  const handleRequestChanges = async () => {
+    if (!selectedEvent) {
+      setError('No event selected');
+      return;
     }
+    
+    if (!user || user.role !== 'admin') {
+      setError('You must be an admin to perform this action');
+      return;
+    }
+    
+    if (!approvalNotes || approvalNotes.trim() === '') {
+      setError('Please provide notes explaining the requested changes.');
+      return;
+    }
+    
+    try {
+      console.log('Requesting changes for event:', selectedEvent.id);
+      console.log('User role:', user.role);
+      console.log('Token:', localStorage.getItem('token'));
+      
+      const response = await axios.patch(
+        `http://localhost:5001/api/events/${selectedEvent.id}/status`,
+        {
+          status: 'changes_requested',
+          approvalNotes: approvalNotes.trim()
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      console.log('Changes request response:', response.data);
+      setSuccessMessage('Changes requested successfully');
+      await fetchEvents();
+      handleCloseDialog();
+    } catch (error: any) {
+      console.error('Error requesting changes:', error);
+      if (error.response?.status === 403) {
+        setError('You do not have permission to request changes. Please make sure you are logged in as an admin.');
+        setTimeout(() => {
+          logout();
+          navigate('/login');
+        }, 3000);
+      } else {
+        setError(error.response?.data?.message || 'Failed to request changes. Please try again.');
+      }
+    }
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setSelectedEvent(null);
+    setApprovalNotes('');
+    setError('');
   };
 
   const handleClubChange = (event: SelectChangeEvent) => {
@@ -191,12 +300,6 @@ const AdminCalendar: React.FC = () => {
 
   const handleStatusChange = (event: SelectChangeEvent) => {
     setSelectedApprovalStatus(event.target.value);
-  };
-
-  const handleCloseDialog = () => {
-    setIsDialogOpen(false);
-    setSelectedEvent(null);
-    setApprovalNotes('');
   };
 
   const handleLogout = () => {
@@ -254,6 +357,16 @@ const AdminCalendar: React.FC = () => {
       </AppBar>
 
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+            {error}
+          </Alert>
+        )}
+        {successMessage && (
+          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccessMessage('')}>
+            {successMessage}
+          </Alert>
+        )}
         <Grid container spacing={3}>
           {/* Quick Access Links */}
           <Grid item xs={12} md={3}>
@@ -366,8 +479,9 @@ const AdminCalendar: React.FC = () => {
                   <Grid item xs={12} md={2}>
                     <Button
                       fullWidth
-                      variant="contained"
+                      variant="outlined"
                       onClick={handleResetFilters}
+                      size="medium"
                     >
                       Reset Filters
                     </Button>
@@ -378,127 +492,95 @@ const AdminCalendar: React.FC = () => {
 
             {/* Calendar */}
             <Paper sx={{ p: 2 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Box>
-                  <IconButton onClick={navigatePrevious}>&lt;</IconButton>
-                  <IconButton onClick={navigateNext}>&gt;</IconButton>
-                  <Button onClick={navigateToToday}>today</Button>
-                </Box>
-                <Typography variant="h5">
-                  {currentDate.format('MMMM YYYY')}
-                </Typography>
-                <Box>
-                  <Button
-                    variant={viewMode === 'dayGridMonth' ? 'contained' : 'outlined'}
-                    onClick={() => setViewMode('dayGridMonth')}
-                    sx={{ mr: 1 }}
-                  >
-                    month
-                  </Button>
-                  <Button
-                    variant={viewMode === 'dayGridWeek' ? 'contained' : 'outlined'}
-                    onClick={() => setViewMode('dayGridWeek')}
-                  >
-                    week
-                  </Button>
-                </Box>
-              </Box>
               <FullCalendar
                 plugins={[dayGridPlugin, interactionPlugin]}
                 initialView={viewMode}
                 events={events}
                 eventClick={handleEventClick}
-                eventContent={(arg) => {
-                  return (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      {getStatusIcon(arg.event.extendedProps.approvalStatus)}
-                      <span>{arg.event.title}</span>
-                    </Box>
-                  );
-                }}
                 headerToolbar={false}
                 height="auto"
+                eventContent={(eventInfo) => ({
+                  html: `
+                    <div class="fc-content" style="display: flex; align-items: center; gap: 4px;">
+                      <div style="width: 8px; height: 8px; border-radius: 50%; background-color: ${
+                        eventInfo.event.extendedProps.approvalStatus === 'approved'
+                          ? '#4caf50'
+                          : eventInfo.event.extendedProps.approvalStatus === 'changes_requested'
+                          ? '#f44336'
+                          : '#ff9800'
+                      };"></div>
+                      <div>${eventInfo.event.title}</div>
+                    </div>
+                  `
+                })}
               />
             </Paper>
           </Grid>
         </Grid>
-
-        {/* Event Details Dialog */}
-        <Dialog open={isDialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-          {selectedEvent && (
-            <>
-              <DialogTitle>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Typography variant="h6">{selectedEvent.title}</Typography>
-                  <Box>
-                    {getStatusIcon(selectedEvent.extendedProps.approvalStatus)}
-                  </Box>
-                </Box>
-              </DialogTitle>
-              <DialogContent>
-                <Stack spacing={2}>
-                  <Typography variant="body1">
-                    <strong>Club:</strong>{' '}
-                    {selectedEvent.extendedProps.club.name}
-                  </Typography>
-                  <Typography variant="body1">
-                    <strong>Date:</strong>{' '}
-                    {new Date(selectedEvent.start).toLocaleDateString()}
-                  </Typography>
-                  <Typography variant="body1">
-                    <strong>Time:</strong> {selectedEvent.extendedProps.time}
-                  </Typography>
-                  <Typography variant="body1">
-                    <strong>Location:</strong> {selectedEvent.extendedProps.location}
-                  </Typography>
-                  <Typography variant="body1">
-                    <strong>Event Type:</strong>{' '}
-                    {selectedEvent.extendedProps.eventType.charAt(0).toUpperCase() +
-                      selectedEvent.extendedProps.eventType.slice(1)}
-                  </Typography>
-                  <Typography variant="body1">
-                    <strong>Description:</strong>
-                    <br />
-                    {selectedEvent.extendedProps.description}
-                  </Typography>
-                  <Typography variant="body1">
-                    <strong>Current Status:</strong>{' '}
-                    {selectedEvent.extendedProps.approvalStatus.charAt(0).toUpperCase() +
-                      selectedEvent.extendedProps.approvalStatus.slice(1).replace('_', ' ')}
-                  </Typography>
-                  <TextField
-                    label="Approval Notes"
-                    multiline
-                    rows={4}
-                    value={approvalNotes}
-                    onChange={(e) => setApprovalNotes(e.target.value)}
-                    fullWidth
-                  />
-                </Stack>
-              </DialogContent>
-              <DialogActions>
-                <ButtonGroup variant="contained">
-                  <Button
-                    startIcon={<ApproveIcon />}
-                    color="success"
-                    onClick={() => handleUpdateEventStatus('approved')}
-                  >
-                    Approve
-                  </Button>
-                  <Button
-                    startIcon={<RejectIcon />}
-                    color="error"
-                    onClick={() => handleUpdateEventStatus('changes_requested')}
-                  >
-                    Request Changes
-                  </Button>
-                </ButtonGroup>
-                <Button onClick={handleCloseDialog}>Close</Button>
-              </DialogActions>
-            </>
-          )}
-        </Dialog>
       </Container>
+
+      {/* Event Details Dialog */}
+      <Dialog open={isDialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+        {selectedEvent && (
+          <>
+            <DialogTitle>
+              Event Details
+              <Typography variant="caption" display="block" color="textSecondary">
+                Status: {selectedEvent.extendedProps.approvalStatus.toUpperCase()}
+              </Typography>
+            </DialogTitle>
+            <DialogContent dividers>
+              <Stack spacing={2}>
+                <Typography variant="h6">{selectedEvent.title}</Typography>
+                <Typography><strong>Club:</strong> {selectedEvent.extendedProps.club.name}</Typography>
+                <Typography><strong>Description:</strong> {selectedEvent.extendedProps.description}</Typography>
+                <Typography><strong>Location:</strong> {selectedEvent.extendedProps.location}</Typography>
+                <Typography><strong>Date:</strong> {dayjs(selectedEvent.start).format('MMMM D, YYYY')}</Typography>
+                <Typography><strong>Time:</strong> {selectedEvent.extendedProps.time}</Typography>
+                <Typography><strong>Event Type:</strong> {selectedEvent.extendedProps.eventType}</Typography>
+                {selectedEvent.extendedProps.registrationLink && (
+                  <Typography>
+                    <strong>Registration Link:</strong>{' '}
+                    <Link href={selectedEvent.extendedProps.registrationLink} target="_blank">
+                      {selectedEvent.extendedProps.registrationLink}
+                    </Link>
+                  </Typography>
+                )}
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={4}
+                  label="Approval Notes"
+                  value={approvalNotes}
+                  onChange={(e) => setApprovalNotes(e.target.value)}
+                  placeholder="Add notes about your decision (required for requesting changes)"
+                />
+              </Stack>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleCloseDialog}>Close</Button>
+              <ButtonGroup variant="contained">
+                <Button
+                  startIcon={<ApproveIcon />}
+                  color="success"
+                  onClick={handleApproveEvent}
+                  disabled={selectedEvent.extendedProps.approvalStatus === 'approved'}
+                >
+                  Approve
+                </Button>
+                <Button
+                  startIcon={<RejectIcon />}
+                  color="error"
+                  onClick={handleRequestChanges}
+                  disabled={selectedEvent.extendedProps.approvalStatus === 'changes_requested'}
+                >
+                  Request Changes
+                </Button>
+              </ButtonGroup>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
     </Box>
   );
 };

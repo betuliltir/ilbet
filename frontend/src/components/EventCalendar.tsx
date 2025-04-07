@@ -24,6 +24,7 @@ import {
   ListItemIcon,
   IconButton,
   TextField,
+  Link,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -46,22 +47,38 @@ import {
 import axios from 'axios';
 import dayjs, { Dayjs } from 'dayjs';
 
+interface EventData {
+  _id: string;
+  title: string;
+  date: string;
+  time: string;
+  description: string;
+  location: string;
+  club: {
+    _id: string;
+    name: string;
+  };
+  eventType: string;
+  registrationLink?: string;
+  feedbackLink?: string;
+}
+
 interface Event {
   id: string;
   title: string;
   start: string;
   end: string;
-  status: 'pending' | 'approved' | 'changes_requested';
   extendedProps: {
     description: string;
     location: string;
     time: string;
-    club: string;
+    club: {
+      _id: string;
+      name: string;
+    };
     eventType: string;
-    registrationLink: string;
+    registrationLink?: string;
     feedbackLink?: string;
-    approvalStatus: string;
-    approvalNotes?: string;
   };
 }
 
@@ -78,7 +95,7 @@ interface EventFormData {
   time: string;
   eventType: string;
   registrationLink: string;
-  feedbackLink?: string;
+  feedbackLink: string;
 }
 
 const EventCalendar: React.FC = () => {
@@ -105,6 +122,8 @@ const EventCalendar: React.FC = () => {
   });
   const [viewMode, setViewMode] = useState<'dayGridMonth' | 'dayGridWeek'>('dayGridMonth');
   const [currentDate, setCurrentDate] = useState<Dayjs>(dayjs());
+  const [error, setError] = useState<string | null>(null);
+  const [isEventDetailOpen, setIsEventDetailOpen] = useState(false);
 
   const navigate = useNavigate();
   const { logout, user } = useAuth();
@@ -129,20 +148,49 @@ const EventCalendar: React.FC = () => {
 
   const fetchEvents = useCallback(async () => {
     try {
-      let url = 'http://localhost:5001/api/events?';
       const params = new URLSearchParams();
-
       if (selectedClub) params.append('club', selectedClub);
       if (selectedEventType) params.append('eventType', selectedEventType);
+      if (user?.role === 'clubManager') {
+        if (selectedApprovalStatus) params.append('status', selectedApprovalStatus);
+      } else {
+        // For students, only show approved events
+        params.append('status', 'approved');
+      }
       if (startDate) params.append('startDate', startDate.format('YYYY-MM-DD'));
       if (endDate) params.append('endDate', endDate.format('YYYY-MM-DD'));
 
-      const response = await axios.get(url + params.toString());
-      setEvents(response.data);
+      const response = await axios.get<EventData[]>(`http://localhost:5001/api/events?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      const formattedEvents: Event[] = response.data.map((event) => ({
+        id: event._id,
+        title: event.title,
+        start: `${event.date.split('T')[0]}T${event.time}`,
+        end: `${event.date.split('T')[0]}T${event.time}`,
+        extendedProps: {
+          description: event.description,
+          location: event.location,
+          time: event.time,
+          club: {
+            _id: event.club._id,
+            name: event.club.name
+          },
+          eventType: event.eventType,
+          ...(event.registrationLink && { registrationLink: event.registrationLink }),
+          ...(event.feedbackLink && { feedbackLink: event.feedbackLink })
+        }
+      }));
+
+      setEvents(formattedEvents);
     } catch (error) {
       console.error('Error fetching events:', error);
+      setError('Failed to fetch events. Please try again later.');
     }
-  }, [selectedClub, selectedEventType, startDate, endDate]);
+  }, [selectedClub, selectedEventType, selectedApprovalStatus, startDate, endDate, user?.role]);
 
   useEffect(() => {
     fetchClubs();
@@ -151,7 +199,7 @@ const EventCalendar: React.FC = () => {
 
   const handleEventClick = (info: any) => {
     setSelectedEvent(info.event);
-    setIsDialogOpen(true);
+    setIsEventDetailOpen(true);
   };
 
   const handleAddEvent = () => {
@@ -178,8 +226,8 @@ const EventCalendar: React.FC = () => {
       date: dayjs(event.start),
       time: event.extendedProps.time,
       eventType: event.extendedProps.eventType,
-      registrationLink: event.extendedProps.registrationLink,
-      feedbackLink: event.extendedProps.feedbackLink,
+      registrationLink: event.extendedProps.registrationLink || '',
+      feedbackLink: event.extendedProps.feedbackLink || '',
     });
     setIsEventFormOpen(true);
   };
@@ -191,6 +239,9 @@ const EventCalendar: React.FC = () => {
         ...eventFormData,
         club: user?.club,
         date: eventFormData.date?.format('YYYY-MM-DD'),
+        // Only include non-empty links
+        ...(eventFormData.registrationLink && { registrationLink: eventFormData.registrationLink }),
+        ...(eventFormData.feedbackLink && { feedbackLink: eventFormData.feedbackLink }),
       };
 
       if (isEditMode && selectedEvent) {
@@ -200,9 +251,7 @@ const EventCalendar: React.FC = () => {
       }
 
       setIsEventFormOpen(false);
-      // Refresh events
-      const response = await axios.get('http://localhost:5001/api/events');
-      setEvents(response.data);
+      fetchEvents(); // Use the existing fetchEvents function
     } catch (error) {
       console.error('Error saving event:', error);
     }
@@ -278,6 +327,11 @@ const EventCalendar: React.FC = () => {
 
   const navigateNext = () => {
     setCurrentDate(currentDate.add(1, viewMode === 'dayGridMonth' ? 'month' : 'week'));
+  };
+
+  const handleCloseEventDetail = () => {
+    setIsEventDetailOpen(false);
+    setSelectedEvent(null);
   };
 
   return (
@@ -573,85 +627,46 @@ const EventCalendar: React.FC = () => {
         </Dialog>
 
         {/* Event Details Dialog */}
-        <Dialog open={isDialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+        <Dialog 
+          open={isEventDetailOpen} 
+          onClose={handleCloseEventDetail}
+          maxWidth="sm"
+          fullWidth
+        >
           {selectedEvent && (
             <>
               <DialogTitle>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Typography variant="h6">{selectedEvent.title}</Typography>
-                  <Box>
-                    {getStatusIcon(selectedEvent.extendedProps.approvalStatus)}
-                    <IconButton 
-                      onClick={() => {
-                        handleEditEvent(selectedEvent);
-                        handleCloseDialog();
-                      }}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                  </Box>
-                </Box>
+                Event Details
               </DialogTitle>
-              <DialogContent>
+              <DialogContent dividers>
                 <Stack spacing={2}>
-                  <Typography variant="body1">
-                    <strong>Date:</strong>{' '}
-                    {new Date(selectedEvent.start).toLocaleDateString()}
-                  </Typography>
-                  <Typography variant="body1">
-                    <strong>Time:</strong> {selectedEvent.extendedProps.time}
-                  </Typography>
-                  <Typography variant="body1">
-                    <strong>Location:</strong> {selectedEvent.extendedProps.location}
-                  </Typography>
-                  <Typography variant="body1">
-                    <strong>Club:</strong> {selectedEvent.extendedProps.club}
-                  </Typography>
-                  <Typography variant="body1">
-                    <strong>Event Type:</strong>{' '}
-                    {selectedEvent.extendedProps.eventType.charAt(0).toUpperCase() +
-                      selectedEvent.extendedProps.eventType.slice(1)}
-                  </Typography>
-                  <Typography variant="body1">
-                    <strong>Description:</strong>
-                    <br />
-                    {selectedEvent.extendedProps.description}
-                  </Typography>
-                  <Typography variant="body1">
-                    <strong>Approval Status:</strong>{' '}
-                    {selectedEvent.extendedProps.approvalStatus.charAt(0).toUpperCase() +
-                      selectedEvent.extendedProps.approvalStatus.slice(1).replace('_', ' ')}
-                  </Typography>
-                  {selectedEvent.extendedProps.approvalNotes && (
-                    <Typography variant="body1">
-                      <strong>Approval Notes:</strong>
-                      <br />
-                      {selectedEvent.extendedProps.approvalNotes}
+                  <Typography variant="h6">{selectedEvent.title}</Typography>
+                  <Typography><strong>Club:</strong> {selectedEvent.extendedProps.club.name}</Typography>
+                  <Typography><strong>Description:</strong> {selectedEvent.extendedProps.description}</Typography>
+                  <Typography><strong>Location:</strong> {selectedEvent.extendedProps.location}</Typography>
+                  <Typography><strong>Date:</strong> {dayjs(selectedEvent.start).format('MMMM D, YYYY')}</Typography>
+                  <Typography><strong>Time:</strong> {selectedEvent.extendedProps.time}</Typography>
+                  <Typography><strong>Event Type:</strong> {selectedEvent.extendedProps.eventType}</Typography>
+                  {selectedEvent.extendedProps.registrationLink && (
+                    <Typography>
+                      <strong>Registration Link:</strong>{' '}
+                      <Link href={selectedEvent.extendedProps.registrationLink} target="_blank" rel="noopener noreferrer">
+                        {selectedEvent.extendedProps.registrationLink}
+                      </Link>
+                    </Typography>
+                  )}
+                  {selectedEvent.extendedProps.feedbackLink && (
+                    <Typography>
+                      <strong>Feedback Link:</strong>{' '}
+                      <Link href={selectedEvent.extendedProps.feedbackLink} target="_blank" rel="noopener noreferrer">
+                        {selectedEvent.extendedProps.feedbackLink}
+                      </Link>
                     </Typography>
                   )}
                 </Stack>
               </DialogContent>
               <DialogActions>
-                {selectedEvent.extendedProps.registrationLink && (
-                  <Button
-                    href={selectedEvent.extendedProps.registrationLink}
-                    target="_blank"
-                    variant="contained"
-                    color="primary"
-                  >
-                    Register
-                  </Button>
-                )}
-                {selectedEvent.extendedProps.feedbackLink && (
-                  <Button
-                    href={selectedEvent.extendedProps.feedbackLink}
-                    target="_blank"
-                    variant="outlined"
-                  >
-                    Feedback
-                  </Button>
-                )}
-                <Button onClick={handleCloseDialog}>Close</Button>
+                <Button onClick={handleCloseEventDetail}>Close</Button>
               </DialogActions>
             </>
           )}
