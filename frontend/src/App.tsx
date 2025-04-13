@@ -16,6 +16,7 @@ import ClubManagement from './components/ClubManagement';
 import StudentClubs from './components/StudentClubs';
 import ClubMembership from './components/ClubMembership';
 import ClubDetail from './components/ClubDetail';
+import EventDetails from './components/EventDetails';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -125,6 +126,7 @@ const AppContent = () => {
           </PrivateRoute>
         }
       />
+      <Route path="/events/:eventId" element={<EventDetails />} />
     </Routes>
   );
 };

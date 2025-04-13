@@ -49,6 +49,7 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import dayjs, { Dayjs } from 'dayjs';
+import { EventClickArg } from '@fullcalendar/core';
 
 interface EventData {
   _id: string;
@@ -206,9 +207,9 @@ const EventCalendar: React.FC = () => {
     fetchEvents();
   }, [fetchClubs, fetchEvents]);
 
-  const handleEventClick = (info: any) => {
-    setSelectedEvent(info.event);
-    setIsEventDetailOpen(true);
+  const handleEventClick = (clickInfo: EventClickArg) => {
+    const eventId = clickInfo.event.id;
+    navigate(`/events/${eventId}`);
   };
 
   const handleAddEvent = () => {
