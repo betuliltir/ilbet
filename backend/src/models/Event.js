@@ -52,6 +52,10 @@ const eventSchema = new mongoose.Schema({
   approvalNotes: {
     type: String
   },
+  participants: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
