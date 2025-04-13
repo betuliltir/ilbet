@@ -12,6 +12,10 @@ import ClubManagerCalendar from './components/ClubManagerCalendar';
 import AdminCalendar from './components/AdminCalendar';
 import HomePage from './components/HomePage';
 import PrivateRoute from './components/PrivateRoute';
+import ClubManagement from './components/ClubManagement';
+import StudentClubs from './components/StudentClubs';
+import ClubMembership from './components/ClubMembership';
+import ClubDetail from './components/ClubDetail';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -70,6 +74,54 @@ const AppContent = () => {
             ) : (
               <Navigate to="/calendar" replace />
             )}
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/admin/clubs"
+        element={
+          <PrivateRoute>
+            {user?.role === 'admin' ? (
+              <ClubManagement />
+            ) : (
+              <Navigate to="/calendar" replace />
+            )}
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/manager/clubs"
+        element={
+          <PrivateRoute>
+            {user?.role === 'clubManager' ? (
+              <ClubManagement />
+            ) : (
+              <Navigate to="/calendar" replace />
+            )}
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/clubs"
+        element={
+          <PrivateRoute>
+            <StudentClubs />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/clubs/:id"
+        element={
+          <PrivateRoute>
+            <ClubDetail />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/membership"
+        element={
+          <PrivateRoute>
+            <ClubMembership />
           </PrivateRoute>
         }
       />

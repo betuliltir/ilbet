@@ -35,14 +35,17 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { 
-  CalendarToday, 
-  Group, 
+  CalendarToday as CalendarIcon,
+  Group as GroupIcon,
+  People as PeopleIcon,
   Feedback, 
   Add as AddIcon, 
   Edit as EditIcon,
   CheckCircle as ApprovedIcon,
   Pending as PendingIcon,
   ChangeCircle as ChangesRequestedIcon,
+  Groups as GroupsIcon,
+  AdminPanelSettings as AdminPanelSettingsIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import dayjs, { Dayjs } from 'dayjs';
@@ -129,11 +132,17 @@ const EventCalendar: React.FC = () => {
   const { logout, user } = useAuth();
 
   const quickAccessLinks = [
-    { text: 'Event Calendar', icon: <CalendarToday />, path: '/calendar' },
-    ...(user?.role === 'clubManager' ? [
-      { text: 'Event Management', icon: <EditIcon />, path: '/events/manage' }
+    { text: 'Calendar', icon: <CalendarIcon />, path: '/calendar' },
+    { text: 'Clubs', icon: <GroupsIcon />, path: '/clubs' },
+    ...(user?.role === 'admin' ? [
+      { text: 'Club Management', icon: <AdminPanelSettingsIcon />, path: '/admin/clubs' }
     ] : []),
-    { text: 'Club Membership', icon: <Group />, path: '/membership' },
+    ...(user?.role === 'clubManager' ? [
+      { text: 'Event Management', icon: <EditIcon />, path: '/events/manage' },
+      { text: 'Club Management', icon: <EditIcon />, path: '/manager/clubs' }
+    ] : user?.role === 'admin' ? [] : [
+      { text: 'Club Membership', icon: <PeopleIcon />, path: '/membership' }
+    ]),
     { text: 'Feedback Form', icon: <Feedback />, path: '/feedback' },
   ];
 

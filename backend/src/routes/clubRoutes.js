@@ -4,11 +4,11 @@ const Club = require('../models/Club');
 const { authenticate } = require('../middleware/auth');
 const { authorize } = require('../middleware/authorize');
 
-// Get all clubs (public route for registration)
+// Get all clubs
 router.get('/', async (req, res) => {
   try {
     const clubs = await Club.find()
-      .select('name description')
+      .populate('members', 'firstName lastName email _id')
       .sort({ name: 1 });
     res.json(clubs);
   } catch (error) {
@@ -17,12 +17,10 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get club by ID (protected route)
+// Get club by ID
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const club = await Club.findById(req.params.id)
-      .populate('advisor', 'firstName lastName email')
-      .populate('managers', 'firstName lastName email')
       .populate('members', 'firstName lastName email');
     
     if (!club) {
@@ -38,12 +36,11 @@ router.get('/:id', authenticate, async (req, res) => {
 // Create new club (admin only)
 router.post('/', authenticate, authorize(['admin']), async (req, res) => {
   try {
-    const { name, description, advisor } = req.body;
+    const { name, description } = req.body;
     
     const club = new Club({
       name,
-      description,
-      advisor
+      description
     });
     
     await club.save();
@@ -53,18 +50,13 @@ router.post('/', authenticate, authorize(['admin']), async (req, res) => {
   }
 });
 
-// Update club (admin and club advisor only)
-router.put('/:id', authenticate, authorize(['admin', 'clubAdvisor']), async (req, res) => {
+// Update club (admin only)
+router.put('/:id', authenticate, authorize(['admin']), async (req, res) => {
   try {
     const club = await Club.findById(req.params.id);
     
     if (!club) {
       return res.status(404).json({ message: 'Club not found' });
-    }
-    
-    // If user is club advisor, verify they are the advisor of this club
-    if (req.user.role === 'clubAdvisor' && club.advisor.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized to update this club' });
     }
     
     const updatedClub = await Club.findByIdAndUpdate(
@@ -79,23 +71,39 @@ router.put('/:id', authenticate, authorize(['admin', 'clubAdvisor']), async (req
   }
 });
 
-// Add member to club
-router.post('/:id/members', authenticate, authorize(['clubManager', 'admin']), async (req, res) => {
+// Delete club (admin only)
+router.delete('/:id', authenticate, authorize(['admin']), async (req, res) => {
   try {
-    const { userId } = req.body;
     const club = await Club.findById(req.params.id);
     
     if (!club) {
       return res.status(404).json({ message: 'Club not found' });
     }
     
-    // If user is club manager, verify they are a manager of this club
-    if (req.user.role === 'clubManager' && !club.managers.includes(req.user._id)) {
-      return res.status(403).json({ message: 'Not authorized to add members to this club' });
+    await Club.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Club deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting club', error: error.message });
+  }
+});
+
+// Add member to club (students can join)
+router.post('/:id/members/:userId', authenticate, async (req, res) => {
+  try {
+    const { id, userId } = req.params;
+    const club = await Club.findById(id);
+    
+    if (!club) {
+      return res.status(404).json({ message: 'Club not found' });
+    }
+
+    // Check if the user is trying to join themselves
+    if (userId !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'You can only join clubs for yourself' });
     }
     
     if (club.members.includes(userId)) {
-      return res.status(400).json({ message: 'User is already a member of this club' });
+      return res.status(400).json({ message: 'You are already a member of this club' });
     }
     
     club.members.push(userId);
@@ -103,30 +111,40 @@ router.post('/:id/members', authenticate, authorize(['clubManager', 'admin']), a
     
     res.json(club);
   } catch (error) {
-    res.status(500).json({ message: 'Error adding member to club', error: error.message });
+    res.status(500).json({ message: 'Error joining club', error: error.message });
   }
 });
 
-// Remove member from club
-router.delete('/:id/members/:userId', authenticate, authorize(['clubManager', 'admin']), async (req, res) => {
+// Remove member from club (admin or self)
+router.delete('/:id/members/:userId', authenticate, async (req, res) => {
   try {
-    const club = await Club.findById(req.params.id);
+    const { id, userId } = req.params;
+    const club = await Club.findById(id)
+      .populate('members', 'firstName lastName email _id');
     
     if (!club) {
       return res.status(404).json({ message: 'Club not found' });
     }
-    
-    // If user is club manager, verify they are a manager of this club
-    if (req.user.role === 'clubManager' && !club.managers.includes(req.user._id)) {
-      return res.status(403).json({ message: 'Not authorized to remove members from this club' });
+
+    // Allow users to remove themselves or admins to remove anyone
+    if (req.user.role !== 'admin' && userId !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'You can only leave clubs for yourself' });
+    }
+
+    // Check if user is actually a member
+    const isMember = club.members.some(member => member._id.toString() === userId);
+    if (!isMember) {
+      return res.status(400).json({ message: 'You are not a member of this club' });
     }
     
-    club.members = club.members.filter(member => member.toString() !== req.params.userId);
+    // Remove member
+    club.members = club.members.filter(member => member._id.toString() !== userId);
     await club.save();
     
-    res.json(club);
+    res.json({ message: 'Successfully left the club' });
   } catch (error) {
-    res.status(500).json({ message: 'Error removing member from club', error: error.message });
+    console.error('Error leaving club:', error);
+    res.status(500).json({ message: 'Error leaving club', error: error.message });
   }
 });
 

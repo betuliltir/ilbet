@@ -11,15 +11,6 @@ const clubSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  advisor: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  managers: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }],
   members: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

@@ -5,6 +5,7 @@ const cors = require('cors');
 const eventRoutes = require('./routes/eventRoutes');
 const authRoutes = require('./routes/authRoutes');
 const clubRoutes = require('./routes/clubRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 const app = express();
 
@@ -24,6 +25,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 app.use('/api/auth', authRoutes);
 app.use('/api/clubs', clubRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/users', userRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
