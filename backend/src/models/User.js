@@ -25,17 +25,18 @@ const userSchema = new mongoose.Schema({
   },
   studentId: {
     type: String,
-    required: function() { return this.role === 'student'; }
+    required: function() { return this.userType === 'student'; }
   },
-  role: {
+  userType: {
     type: String,
     enum: ['student', 'clubManager', 'clubAdvisor', 'admin'],
+    default: 'student',
     required: true
   },
   club: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Club',
-    required: function() { return this.role === 'clubManager'; }
+    required: function() { return this.userType === 'clubManager'; }
   },
   createdAt: {
     type: Date,

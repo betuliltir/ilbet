@@ -2,36 +2,35 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const User = require('../models/User');
 
-async function createTestUser() {
+const createTestUser = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log('Connected to MongoDB');
-
-    // Check if user already exists
-    const existingUser = await User.findOne({ email: 'sevvalelif@sabanciuniv.edu' });
-    if (existingUser) {
-      console.log('Test user already exists');
-      await mongoose.connection.close();
-      return;
-    }
-
-    // Create new user
-    const user = new User({
-      firstName: 'Sevval',
-      lastName: 'Elif',
-      email: 'sevvalelif@sabanciuniv.edu',
-      password: '123456',
-      role: 'student',
-      studentId: 'STUDENT123'
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
     });
 
-    await user.save();
+    // Delete existing test user if exists
+    await User.deleteOne({ email: 'test@example.com' });
+
+    // Create new test user
+    const testUser = new User({
+      firstName: 'Test',
+      lastName: 'User',
+      email: 'test@example.com',
+      password: 'password123',
+      studentId: '12345',
+      userType: 'student'
+    });
+
+    await testUser.save();
     console.log('Test user created successfully');
-    await mongoose.connection.close();
+    console.log('Email: test@example.com');
+    console.log('Password: password123');
+
+    await mongoose.disconnect();
   } catch (error) {
-    console.error('Error:', error);
-    await mongoose.connection.close();
+    console.error('Error creating test user:', error);
   }
-}
+};
 
 createTestUser(); 

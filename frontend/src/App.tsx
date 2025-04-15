@@ -17,6 +17,8 @@ import StudentClubs from './components/StudentClubs';
 import ClubMembership from './components/ClubMembership';
 import ClubDetail from './components/ClubDetail';
 import EventDetails from './components/EventDetails';
+import FeedbackPage from './components/FeedbackPage';
+import DemoFeedbackPage from './components/DemoFeedbackPage';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -127,6 +129,17 @@ const AppContent = () => {
         }
       />
       <Route path="/events/:eventId" element={<EventDetails />} />
+      <Route
+        path="/events/:eventId/feedback"
+        element={
+          <PrivateRoute>
+            <FeedbackPage />
+          </PrivateRoute>
+        }
+      />
+      <Route path="/feedback" element={<FeedbackPage />} />
+      {/* Demo feedback page - no authentication required */}
+      <Route path="/demo-feedback" element={<DemoFeedbackPage />} />
     </Routes>
   );
 };
