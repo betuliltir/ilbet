@@ -18,18 +18,23 @@ router.get('/', authenticate, getEvents);
 // Get event details by ID
 router.get('/:id', authenticate, async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id)
+    const eventId = req.params.id;
+    if (!eventId || eventId === 'undefined') {
+      return res.status(400).json({ message: 'Event ID is required and must be valid.' });
+    }
+    const event = await Event.findById(eventId)
       .populate('club', 'name')
       .populate('participants', 'firstName lastName email')
       .populate('feedback.user', 'firstName lastName email');
-    
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
-    
     res.json(event);
   } catch (error) {
     console.error('Error fetching event details:', error);
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid event ID format' });
+    }
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -109,40 +114,63 @@ router.delete('/:id/participants', authenticate, async (req, res) => {
 // Add feedback for an event
 router.post('/:id/feedback', authenticate, async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id);
+    const { rating, comment } = req.body;
+    const userId = req.user._id;
+    const eventId = req.params.id;
+
+    if (!eventId) {
+      return res.status(400).json({ message: 'Event ID is required' });
+    }
+
+    if (!rating) {
+      return res.status(400).json({ message: 'Rating is required' });
+    }
+
+    const event = await Event.findById(eventId);
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
     }
 
     // Check if user is a participant
-    if (!event.participants.includes(req.user.id)) {
-      return res.status(403).json({ message: 'Only participants can submit feedback' });
+    if (!event.participants.includes(userId)) {
+      return res.status(403).json({ message: 'Only participants can provide feedback' });
     }
 
-    // Check if user has already submitted feedback
-    if (event.feedback && event.feedback.some(f => f.user.toString() === req.user.id)) {
-      return res.status(400).json({ message: 'You have already submitted feedback for this event' });
+    // Check if user has already provided feedback
+    const existingFeedback = event.feedback.find(f => f.user.toString() === userId.toString());
+    if (existingFeedback) {
+      return res.status(400).json({ message: 'You have already provided feedback for this event' });
     }
 
-    // Create feedback object
-    const feedback = {
-      user: req.user.id,
-      rating: req.body.rating,
-      comment: req.body.comment,
+    // Add feedback
+    event.feedback.push({
+      user: userId,
+      rating,
+      comment,
       createdAt: new Date()
-    };
+    });
 
-    // Add feedback to event
-    if (!event.feedback) {
-      event.feedback = [];
-    }
-    event.feedback.push(feedback);
     await event.save();
-
     res.status(201).json({ message: 'Feedback submitted successfully' });
   } catch (error) {
     console.error('Error submitting feedback:', error);
-    res.status(500).json({ message: 'Server error' });
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid event ID format' });
+    }
+    res.status(500).json({ message: error.message || 'Server error' });
+  }
+});
+
+// Get all feedback for an event
+router.get('/:id/feedback', authenticate, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id).populate('feedback.user', 'firstName lastName email');
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+    res.json(event.feedback);
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Server error' });
   }
 });
 

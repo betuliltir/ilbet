@@ -19,6 +19,7 @@ import ClubDetail from './components/ClubDetail';
 import EventDetails from './components/EventDetails';
 import FeedbackPage from './components/FeedbackPage';
 import DemoFeedbackPage from './components/DemoFeedbackPage';
+import EvaluationFormsPage from './pages/EvaluationFormsPage';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -128,7 +129,14 @@ const AppContent = () => {
           </PrivateRoute>
         }
       />
-      <Route path="/events/:eventId" element={<EventDetails />} />
+      <Route
+        path="/events/:eventId"
+        element={
+          <PrivateRoute>
+            <EventDetails />
+          </PrivateRoute>
+        }
+      />
       <Route
         path="/events/:eventId/feedback"
         element={
@@ -140,6 +148,14 @@ const AppContent = () => {
       <Route path="/feedback" element={<FeedbackPage />} />
       {/* Demo feedback page - no authentication required */}
       <Route path="/demo-feedback" element={<DemoFeedbackPage />} />
+      <Route
+        path="/evaluation-forms"
+        element={
+          <PrivateRoute>
+            <EvaluationFormsPage />
+          </PrivateRoute>
+        }
+      />
     </Routes>
   );
 };

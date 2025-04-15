@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -18,10 +18,6 @@ import {
   TextField,
   Rating,
   Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   CircularProgress,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -68,11 +64,11 @@ const EventDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [openFeedbackDialog, setOpenFeedbackDialog] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState<number | null>(null);
   const [feedbackComment, setFeedbackComment] = useState('');
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
 
-  const fetchEventDetails = async () => {
+  const fetchEventDetails = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -81,6 +77,12 @@ const EventDetails: React.FC = () => {
       
       if (!token || !userId) {
         setError('Please log in to view event details');
+        setLoading(false);
+        return;
+      }
+
+      if (!eventId) {
+        setError('Event ID is missing');
         setLoading(false);
         return;
       }
@@ -97,8 +99,10 @@ const EventDetails: React.FC = () => {
 
       setEvent(response.data);
       
-      // Check if user is a participant
-      const isUserParticipant = response.data.participants.includes(userId);
+      // Fix participant check
+      const isUserParticipant = response.data.participants
+        .map((p: any) => (typeof p === 'string' ? p : p._id))
+        .includes(userId);
       setIsParticipant(isUserParticipant);
       
       // Check if user is a club manager
@@ -121,11 +125,16 @@ const EventDetails: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [eventId]);
 
   useEffect(() => {
-    fetchEventDetails();
-  }, [eventId]);
+    if (eventId) {
+      fetchEventDetails();
+    } else {
+      setError('Event ID is missing');
+      setLoading(false);
+    }
+  }, [eventId, fetchEventDetails]);
 
   const handleParticipation = async () => {
     try {
@@ -190,7 +199,6 @@ const EventDetails: React.FC = () => {
       );
 
       if (response.status === 201) {
-        setOpenFeedbackDialog(false);
         setFeedbackRating(null);
         setFeedbackComment('');
         await fetchEventDetails(); // Refresh event details to show new feedback
@@ -201,6 +209,10 @@ const EventDetails: React.FC = () => {
       setError(err.response?.data?.message || 'Failed to submit feedback. Please try again.');
     }
   };
+
+  // Helper to check if user has already submitted feedback
+  const userId = localStorage.getItem('userId');
+  const hasSubmittedFeedback = event?.feedback?.some(fb => fb.user && fb.user._id === userId);
 
   if (loading) {
     return (
@@ -371,8 +383,20 @@ const EventDetails: React.FC = () => {
                     </Typography>
                   </Box>
                 )}
-                
                 <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Button
+                    variant="contained"
+                    onClick={() => setShowFeedbackForm(true)}
+                    sx={{
+                      minWidth: '150px',
+                      bgcolor: '#001f3f',
+                      '&:hover': {
+                        bgcolor: '#00284d',
+                      }
+                    }}
+                  >
+                    Evaluation Form
+                  </Button>
                   <Button
                     variant="contained"
                     onClick={handleParticipation}
@@ -387,91 +411,67 @@ const EventDetails: React.FC = () => {
                   >
                     {isParticipant ? 'Leave Event' : 'Join Event'}
                   </Button>
-                  {isParticipant && (
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={() => setOpenFeedbackDialog(true)}
-                      sx={{ 
-                        minWidth: '150px',
-                        bgcolor: '#001f3f',
-                        '&:hover': {
-                          bgcolor: '#00284d',
-                        }
-                      }}
-                    >
-                      Evaluation Form
-                    </Button>
-                  )}
                 </Box>
               </Box>
 
-              {/* Feedback Dialog */}
-              <Dialog 
-                open={openFeedbackDialog} 
-                onClose={() => setOpenFeedbackDialog(false)}
-                maxWidth="md"
-                fullWidth
-              >
-                <DialogTitle sx={{ bgcolor: '#001f3f', color: 'white', display: 'flex', alignItems: 'center' }}>
-                  <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-                    Feedback and Evaluation
+              {showFeedbackForm && (
+                <Paper sx={{ p: 4, mt: 4, mb: 4, position: 'relative' }} elevation={4}>
+                  <Typography variant="h5" gutterBottom>
+                    Event Feedback
                   </Typography>
-                </DialogTitle>
-                <DialogContent sx={{ mt: 2, p: 3 }}>
-                  <Typography variant="h6" gutterBottom>
-                    {event.title}
-                  </Typography>
-                  <Typography variant="subtitle1" gutterBottom color="textSecondary">
-                    {new Date(event.date).toLocaleDateString('en-US', { 
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    })}
-                  </Typography>
-                  
-                  <Box sx={{ mt: 3 }}>
-                    <Typography component="legend" gutterBottom>
-                      Quick Rating
-                    </Typography>
-                    <Rating
-                      value={feedbackRating}
-                      onChange={(_, newValue) => {
-                        setFeedbackRating(newValue);
-                      }}
-                      size="large"
-                    />
-                  </Box>
-
-                  <Box sx={{ mt: 3 }}>
-                    <Typography component="legend" gutterBottom>
-                      Your Feedback
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={4}
-                      placeholder="Share your thoughts about the event..."
-                      value={feedbackComment}
-                      onChange={(e) => setFeedbackComment(e.target.value)}
-                      sx={{ mt: 1 }}
-                    />
-                  </Box>
-                </DialogContent>
-                <DialogActions sx={{ p: 3 }}>
-                  <Button onClick={() => setOpenFeedbackDialog(false)}>
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={handleFeedbackSubmit}
-                    variant="contained"
-                    color="primary"
-                    disabled={!feedbackRating}
-                  >
-                    Submit
-                  </Button>
-                </DialogActions>
-              </Dialog>
+                  {isParticipant ? (
+                    hasSubmittedFeedback ? (
+                      <Alert severity="info" sx={{ mt: 2 }}>
+                        You have already submitted feedback for this event.
+                      </Alert>
+                    ) : (
+                      <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} md={6}>
+                          <Typography variant="subtitle1" gutterBottom>
+                            Quick Rating
+                          </Typography>
+                          <Rating
+                            value={feedbackRating}
+                            onChange={(_, newValue) => setFeedbackRating(newValue)}
+                            size="large"
+                          />
+                        </Grid>
+                        <Grid item xs={12} md={12}>
+                          <Typography variant="subtitle1" gutterBottom>
+                            Feedback Form
+                          </Typography>
+                          <TextField
+                            fullWidth
+                            multiline
+                            rows={5}
+                            placeholder="Share your thoughts about the event..."
+                            value={feedbackComment}
+                            onChange={e => setFeedbackComment(e.target.value)}
+                            sx={{ mt: 1 }}
+                          />
+                        </Grid>
+                        <Grid item xs={12}>
+                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                            <Button
+                              onClick={handleFeedbackSubmit}
+                              variant="contained"
+                              color="primary"
+                              disabled={!feedbackRating}
+                              sx={{ minWidth: 120 }}
+                            >
+                              Submit
+                            </Button>
+                          </Box>
+                        </Grid>
+                      </Grid>
+                    )
+                  ) : (
+                    <Alert severity="info" sx={{ mt: 2 }}>
+                      Only participants can submit feedback for this event.
+                    </Alert>
+                  )}
+                </Paper>
+              )}
 
               {/* Display Existing Feedback */}
               {event?.feedback && event.feedback.length > 0 && (
