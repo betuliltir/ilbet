@@ -54,6 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
           setUser(response.data);
           setIsAuthenticated(true);
+          localStorage.setItem('userId', response.data._id);
         } catch (error) {
           console.error('Error checking auth:', error);
           logout();
@@ -69,6 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await axios.post('http://localhost:5001/api/auth/register', data);
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
+        localStorage.setItem('userId', response.data.user._id);
         setUser(response.data.user);
         setIsAuthenticated(true);
       }
@@ -95,6 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       localStorage.setItem('token', token);
+      localStorage.setItem('userId', user._id);
       setUser(user);
       setIsAuthenticated(true);
     } catch (error: any) {
@@ -112,6 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('userId');
     setUser(null);
     setIsAuthenticated(false);
   };

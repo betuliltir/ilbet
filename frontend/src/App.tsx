@@ -17,6 +17,9 @@ import StudentClubs from './components/StudentClubs';
 import ClubMembership from './components/ClubMembership';
 import ClubDetail from './components/ClubDetail';
 import EventDetails from './components/EventDetails';
+import FeedbackPage from './components/FeedbackPage';
+import DemoFeedbackPage from './components/DemoFeedbackPage';
+import EvaluationFormsPage from './pages/EvaluationFormsPage';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -135,6 +138,25 @@ const AppContent = () => {
             ) : (
               <Navigate to="/calendar" replace />
             )}
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/events/:eventId/feedback"
+        element={
+          <PrivateRoute>
+            <FeedbackPage />
+          </PrivateRoute>
+        }
+      />
+      <Route path="/feedback" element={<FeedbackPage />} />
+      {/* Demo feedback page - no authentication required */}
+      <Route path="/demo-feedback" element={<DemoFeedbackPage />} />
+      <Route
+        path="/evaluation-forms"
+        element={
+          <PrivateRoute>
+            <EvaluationFormsPage />
           </PrivateRoute>
         }
       />

@@ -77,6 +77,7 @@ const HomePage: React.FC = () => {
     { text: 'Event Calendar', icon: <CalendarToday />, path: '/calendar' },
     { text: 'Club Membership', icon: <Group />, path: '/membership' },
     { text: 'Feedback Form', icon: <Feedback />, path: '/feedback' },
+    { text: 'Evaluation Forms', icon: <Feedback />, path: '/evaluation-forms' },
   ];
 
   return (
