@@ -133,11 +133,7 @@ const AppContent = () => {
         path="/events/:eventId"
         element={
           <PrivateRoute>
-            {localStorage.getItem('role') === 'student' ? (
-              <EventDetails />
-            ) : (
-              <Navigate to="/calendar" replace />
-            )}
+            <EventDetails />
           </PrivateRoute>
         }
       />
@@ -145,11 +141,14 @@ const AppContent = () => {
         path="/events/:eventId/feedback"
         element={
           <PrivateRoute>
-            <FeedbackPage />
+            {localStorage.getItem('role') === 'student' ? (
+              <FeedbackPage />
+            ) : (
+              <Navigate to="/calendar" replace />
+            )}
           </PrivateRoute>
         }
       />
-      <Route path="/feedback" element={<FeedbackPage />} />
       {/* Demo feedback page - no authentication required */}
       <Route path="/demo-feedback" element={<DemoFeedbackPage />} />
       <Route

@@ -214,6 +214,10 @@ const EventDetails: React.FC = () => {
   const userId = localStorage.getItem('userId');
   const hasSubmittedFeedback = event?.feedback?.some(fb => fb.user && fb.user._id === userId);
 
+  const handleGiveFeedback = () => {
+    navigate(`/events/${eventId}/feedback`);
+  };
+
   if (loading) {
     return (
       <Container maxWidth="sm" sx={{ mt: 4 }}>
