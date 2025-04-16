@@ -126,7 +126,18 @@ const AppContent = () => {
           </PrivateRoute>
         }
       />
-      <Route path="/events/:eventId" element={<EventDetails />} />
+      <Route
+        path="/events/:eventId"
+        element={
+          <PrivateRoute>
+            {localStorage.getItem('role') === 'student' ? (
+              <EventDetails />
+            ) : (
+              <Navigate to="/calendar" replace />
+            )}
+          </PrivateRoute>
+        }
+      />
     </Routes>
   );
 };

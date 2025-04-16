@@ -46,10 +46,17 @@ import {
   ChangeCircle as ChangesRequestedIcon,
   Groups as GroupsIcon,
   AdminPanelSettings as AdminPanelSettingsIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import dayjs, { Dayjs } from 'dayjs';
 import { EventClickArg } from '@fullcalendar/core';
+
+interface Participant {
+  firstName: string;
+  lastName: string;
+  email: string;
+}
 
 interface EventData {
   _id: string;
@@ -65,6 +72,7 @@ interface EventData {
   eventType: string;
   registrationLink?: string;
   feedbackLink?: string;
+  participants?: Participant[];
 }
 
 interface Event {
@@ -83,6 +91,7 @@ interface Event {
     eventType: string;
     registrationLink?: string;
     feedbackLink?: string;
+    participants?: string[];
   };
 }
 
@@ -191,7 +200,8 @@ const EventCalendar: React.FC = () => {
           },
           eventType: event.eventType,
           ...(event.registrationLink && { registrationLink: event.registrationLink }),
-          ...(event.feedbackLink && { feedbackLink: event.feedbackLink })
+          ...(event.feedbackLink && { feedbackLink: event.feedbackLink }),
+          participants: event.participants?.map(p => `${p.firstName} ${p.lastName}`) || []
         }
       }));
 
@@ -209,11 +219,35 @@ const EventCalendar: React.FC = () => {
 
   const handleEventClick = (clickInfo: EventClickArg) => {
     const eventId = clickInfo.event.id;
-    navigate(`/events/${eventId}`);
+    const userRole = localStorage.getItem('role');
+    
+    if (userRole === 'student') {
+      navigate(`/events/${eventId}`);
+    } else if (userRole === 'clubManager') {
+      const eventDate = clickInfo.event.start ? dayjs(clickInfo.event.start).format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD');
+      const eventData: Event = {
+        id: clickInfo.event.id,
+        title: clickInfo.event.title,
+        start: eventDate,
+        end: eventDate,
+        extendedProps: {
+          description: clickInfo.event.extendedProps.description,
+          location: clickInfo.event.extendedProps.location,
+          time: clickInfo.event.extendedProps.time,
+          club: clickInfo.event.extendedProps.club,
+          eventType: clickInfo.event.extendedProps.eventType,
+          registrationLink: clickInfo.event.extendedProps.registrationLink,
+          feedbackLink: clickInfo.event.extendedProps.feedbackLink,
+          participants: clickInfo.event.extendedProps.participants || []
+        }
+      };
+      setSelectedEvent(eventData);
+      setIsEventDetailOpen(true);
+    }
   };
 
   const handleAddEvent = () => {
-    setIsEditMode(false);
+    setSelectedEvent(null);
     setEventFormData({
       title: '',
       description: '',
@@ -228,7 +262,7 @@ const EventCalendar: React.FC = () => {
   };
 
   const handleEditEvent = (event: Event) => {
-    setIsEditMode(true);
+    setSelectedEvent(event);
     setEventFormData({
       title: event.title,
       description: event.extendedProps.description,
@@ -237,7 +271,7 @@ const EventCalendar: React.FC = () => {
       time: event.extendedProps.time,
       eventType: event.extendedProps.eventType,
       registrationLink: event.extendedProps.registrationLink || '',
-      feedbackLink: event.extendedProps.feedbackLink || '',
+      feedbackLink: event.extendedProps.feedbackLink || ''
     });
     setIsEventFormOpen(true);
   };
@@ -261,7 +295,7 @@ const EventCalendar: React.FC = () => {
       }
 
       setIsEventFormOpen(false);
-      fetchEvents(); // Use the existing fetchEvents function
+      fetchEvents();
     } catch (error) {
       console.error('Error saving event:', error);
     }
@@ -637,47 +671,83 @@ const EventCalendar: React.FC = () => {
         </Dialog>
 
         {/* Event Details Dialog */}
-        <Dialog 
-          open={isEventDetailOpen} 
+        <Dialog
+          open={isEventDetailOpen}
           onClose={handleCloseEventDetail}
-          maxWidth="sm"
+          maxWidth="md"
           fullWidth
         >
           {selectedEvent && (
             <>
               <DialogTitle>
-                Event Details
+                {selectedEvent.title}
+                <IconButton
+                  aria-label="close"
+                  onClick={handleCloseEventDetail}
+                  sx={{
+                    position: 'absolute',
+                    right: 8,
+                    top: 8,
+                  }}
+                >
+                  <CloseIcon />
+                </IconButton>
               </DialogTitle>
-              <DialogContent dividers>
-                <Stack spacing={2}>
-                  <Typography variant="h6">{selectedEvent.title}</Typography>
-                  <Typography><strong>Club:</strong> {selectedEvent.extendedProps.club.name}</Typography>
-                  <Typography><strong>Description:</strong> {selectedEvent.extendedProps.description}</Typography>
-                  <Typography><strong>Location:</strong> {selectedEvent.extendedProps.location}</Typography>
-                  <Typography><strong>Date:</strong> {dayjs(selectedEvent.start).format('MMMM D, YYYY')}</Typography>
-                  <Typography><strong>Time:</strong> {selectedEvent.extendedProps.time}</Typography>
-                  <Typography><strong>Event Type:</strong> {selectedEvent.extendedProps.eventType}</Typography>
-                  {selectedEvent.extendedProps.registrationLink && (
-                    <Typography>
-                      <strong>Registration Link:</strong>{' '}
-                      <Link href={selectedEvent.extendedProps.registrationLink} target="_blank" rel="noopener noreferrer">
-                        {selectedEvent.extendedProps.registrationLink}
-                      </Link>
+              <DialogContent>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle1" gutterBottom>
+                    {dayjs(selectedEvent.start).format('MMMM D, YYYY')} at {selectedEvent.extendedProps.time}
+                  </Typography>
+                </Box>
+
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Event Description
+                  </Typography>
+                  <Typography>
+                    {selectedEvent.extendedProps.description}
+                  </Typography>
+                </Box>
+
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Location Information
+                  </Typography>
+                  <Typography>
+                    {selectedEvent.extendedProps.location}
+                  </Typography>
+                </Box>
+
+                {selectedEvent.extendedProps.feedbackLink && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="h6" gutterBottom>
+                      Feedback
                     </Typography>
-                  )}
-                  {selectedEvent.extendedProps.feedbackLink && (
-                    <Typography>
-                      <strong>Feedback Link:</strong>{' '}
-                      <Link href={selectedEvent.extendedProps.feedbackLink} target="_blank" rel="noopener noreferrer">
-                        {selectedEvent.extendedProps.feedbackLink}
-                      </Link>
-                    </Typography>
-                  )}
-                </Stack>
+                    <Link href={selectedEvent.extendedProps.feedbackLink} target="_blank" rel="noopener">
+                      Provide Feedback
+                    </Link>
+                  </Box>
+                )}
+
+                <Box sx={{ mt: 3 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Participant List
+                  </Typography>
+                  <List>
+                    {(selectedEvent.extendedProps.participants?.length ?? 0) > 0 ? (
+                      selectedEvent.extendedProps.participants?.map((participant, index) => (
+                        <ListItem key={index}>
+                          <ListItemText primary={participant} />
+                        </ListItem>
+                      ))
+                    ) : (
+                      <ListItem>
+                        <ListItemText primary="No participants yet" sx={{ color: 'text.secondary' }} />
+                      </ListItem>
+                    )}
+                  </List>
+                </Box>
               </DialogContent>
-              <DialogActions>
-                <Button onClick={handleCloseEventDetail}>Close</Button>
-              </DialogActions>
             </>
           )}
         </Dialog>
