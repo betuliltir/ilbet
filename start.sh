@@ -1,13 +1,15 @@
 #!/bin/bash
 
-# Start the backend server
+# Start MongoDB and backend server
 echo "Starting backend server..."
-./backend/start.sh &
+cd backend
+npm run dev &
 
-# Wait for the backend to start
+# Wait for backend to start (reduced wait time)
 echo "Waiting for backend to start..."
-sleep 10
+sleep 3
 
 # Start the frontend server
 echo "Starting frontend server..."
-./frontend/start.sh 
+cd ../frontend
+npm start 

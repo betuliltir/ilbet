@@ -47,6 +47,7 @@ import {
   Groups as GroupsIcon,
   AdminPanelSettings as AdminPanelSettingsIcon,
   Close as CloseIcon,
+  LocationOn as LocationIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import dayjs, { Dayjs } from 'dayjs';
@@ -142,18 +143,12 @@ const EventCalendar: React.FC = () => {
   const { logout, user } = useAuth();
 
   const quickAccessLinks = [
-    { text: 'Calendar', icon: <CalendarIcon />, path: '/calendar' },
-    { text: 'Clubs', icon: <GroupsIcon />, path: '/clubs' },
-    ...(user?.role === 'admin' ? [
-      { text: 'Club Management', icon: <AdminPanelSettingsIcon />, path: '/admin/clubs' }
-    ] : []),
+    { text: 'Event Calendar', icon: <CalendarIcon />, path: '/calendar' },
+    { text: 'Event Management', icon: <EditIcon />, path: '/events/manage' },
+    { text: 'Club Membership', icon: <PeopleIcon />, path: '/membership' },
     ...(user?.role === 'clubManager' ? [
-      { text: 'Event Management', icon: <EditIcon />, path: '/events/manage' },
-      { text: 'Club Management', icon: <EditIcon />, path: '/manager/clubs' }
-    ] : user?.role === 'admin' ? [] : [
-      { text: 'Club Membership', icon: <PeopleIcon />, path: '/membership' }
-    ]),
-    { text: 'Feedback Form', icon: <Feedback />, path: '/feedback' },
+      { text: 'Garden Event Location', icon: <LocationIcon />, path: '/garden-location' }
+    ] : [])
   ];
 
   const fetchClubs = useCallback(async () => {

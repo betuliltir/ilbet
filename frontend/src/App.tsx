@@ -20,6 +20,7 @@ import EventDetails from './components/EventDetails';
 import FeedbackPage from './components/FeedbackPage';
 import DemoFeedbackPage from './components/DemoFeedbackPage';
 import EvaluationFormsPage from './pages/EvaluationFormsPage';
+import GardenLocationPage from './pages/GardenLocationPage';
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -156,6 +157,18 @@ const AppContent = () => {
         element={
           <PrivateRoute>
             <EvaluationFormsPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/garden-location"
+        element={
+          <PrivateRoute>
+            {user?.role === 'clubManager' ? (
+              <GardenLocationPage />
+            ) : (
+              <Navigate to="/" replace />
+            )}
           </PrivateRoute>
         }
       />

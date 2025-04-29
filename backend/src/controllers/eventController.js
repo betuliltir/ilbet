@@ -1,24 +1,57 @@
 const Event = require('../models/Event');
+const mongoose = require('mongoose');
 
 // Get all events with filters
 const getEvents = async (req, res) => {
   try {
     const query = {};
     
-    // Apply filters
-    if (req.query.club) query.club = req.query.club;
-    if (req.query.eventType) query.eventType = req.query.eventType;
-    if (req.query.status) query.status = req.query.status;
+    // Apply filters with validation
+    if (req.query.club) {
+      if (!mongoose.Types.ObjectId.isValid(req.query.club)) {
+        return res.status(400).json({ message: 'Invalid club ID format' });
+      }
+      query.club = req.query.club;
+    }
     
-    // Date range filter
+    if (req.query.eventType) {
+      if (!['workshop', 'seminar', 'conference', 'social', 'other'].includes(req.query.eventType)) {
+        return res.status(400).json({ message: 'Invalid event type' });
+      }
+      query.eventType = req.query.eventType;
+    }
+    
+    if (req.query.status) {
+      if (!['pending', 'approved', 'rejected'].includes(req.query.status)) {
+        return res.status(400).json({ message: 'Invalid status' });
+      }
+      query.status = req.query.status;
+    }
+    
+    // Date range filter with validation
     if (req.query.startDate || req.query.endDate) {
       query.date = {};
-      if (req.query.startDate) query.date.$gte = new Date(req.query.startDate);
-      if (req.query.endDate) query.date.$lte = new Date(req.query.endDate);
+      if (req.query.startDate) {
+        const startDate = new Date(req.query.startDate);
+        if (isNaN(startDate.getTime())) {
+          return res.status(400).json({ message: 'Invalid start date format' });
+        }
+        query.date.$gte = startDate;
+      }
+      if (req.query.endDate) {
+        const endDate = new Date(req.query.endDate);
+        if (isNaN(endDate.getTime())) {
+          return res.status(400).json({ message: 'Invalid end date format' });
+        }
+        query.date.$lte = endDate;
+      }
     }
 
     // For club managers, only show their club's events
     if (req.user.role === 'clubManager') {
+      if (!req.user.club) {
+        return res.status(400).json({ message: 'User is not associated with any club' });
+      }
       query.club = req.user.club;
     }
 
@@ -29,16 +62,37 @@ const getEvents = async (req, res) => {
 
     res.json(events);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching events', error: error.message });
+    console.error('Error in getEvents:', error);
+    res.status(500).json({ message: 'Server error while fetching events' });
   }
 };
 
 // Create new event
 const createEvent = async (req, res) => {
   try {
+    const { title, description, date, location, maxParticipants, eventType } = req.body;
+
+    // Validate required fields
+    if (!title || !description || !date || !location || !eventType) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // Validate date
+    const eventDate = new Date(date);
+    if (isNaN(eventDate.getTime())) {
+      return res.status(400).json({ message: 'Invalid date format' });
+    }
+
+    // Validate maxParticipants if provided
+    if (maxParticipants && (isNaN(maxParticipants) || maxParticipants < 1)) {
+      return res.status(400).json({ message: 'Invalid maximum participants value' });
+    }
+
     const eventData = {
       ...req.body,
+      date: eventDate,
       createdBy: req.user._id,
+      club: req.user.club,
       status: 'pending'
     };
 
@@ -47,38 +101,55 @@ const createEvent = async (req, res) => {
 
     res.status(201).json(event);
   } catch (error) {
-    res.status(400).json({ message: 'Error creating event', error: error.message });
+    console.error('Error in createEvent:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: 'Invalid event data', errors: Object.values(error.errors).map(err => err.message) });
+    }
+    res.status(500).json({ message: 'Server error while creating event' });
   }
 };
 
 // Update event
 const updateEvent = async (req, res) => {
   try {
-    const event = await Event.findById(req.params.id);
-    
-    if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
+    const { title, description, date, location, maxParticipants, eventType } = req.body;
+
+    // Validate date if provided
+    if (date) {
+      const eventDate = new Date(date);
+      if (isNaN(eventDate.getTime())) {
+        return res.status(400).json({ message: 'Invalid date format' });
+      }
+      req.body.date = eventDate;
     }
 
-    // Only allow club managers to edit their own club's events
-    if (req.user.role === 'clubManager' && event.club.toString() !== req.user.club.toString()) {
-      return res.status(403).json({ message: 'Not authorized to edit this event' });
+    // Validate maxParticipants if provided
+    if (maxParticipants && (isNaN(maxParticipants) || maxParticipants < 1)) {
+      return res.status(400).json({ message: 'Invalid maximum participants value' });
     }
 
-    // If changes are made to an approved event, set status back to pending
-    if (event.status === 'approved' && req.user.role === 'clubManager') {
-      req.body.status = 'pending';
+    // Validate eventType if provided
+    if (eventType && !['workshop', 'seminar', 'conference', 'social', 'other'].includes(eventType)) {
+      return res.status(400).json({ message: 'Invalid event type' });
     }
 
     const updatedEvent = await Event.findByIdAndUpdate(
       req.params.id,
       { ...req.body, updatedAt: Date.now() },
-      { new: true }
+      { new: true, runValidators: true }
     );
+
+    if (!updatedEvent) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
 
     res.json(updatedEvent);
   } catch (error) {
-    res.status(400).json({ message: 'Error updating event', error: error.message });
+    console.error('Error in updateEvent:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: 'Invalid event data', errors: Object.values(error.errors).map(err => err.message) });
+    }
+    res.status(500).json({ message: 'Server error while updating event' });
   }
 };
 
@@ -91,15 +162,16 @@ const deleteEvent = async (req, res) => {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    // Only allow club managers to delete their own club's events
-    if (req.user.role === 'clubManager' && event.club.toString() !== req.user.club.toString()) {
-      return res.status(403).json({ message: 'Not authorized to delete this event' });
+    // Check if event has participants
+    if (event.participants.length > 0) {
+      return res.status(400).json({ message: 'Cannot delete event with existing participants' });
     }
 
-    await event.remove();
+    await event.deleteOne();
     res.json({ message: 'Event deleted successfully' });
   } catch (error) {
-    res.status(400).json({ message: 'Error deleting event', error: error.message });
+    console.error('Error in deleteEvent:', error);
+    res.status(500).json({ message: 'Server error while deleting event' });
   }
 };
 
@@ -108,7 +180,9 @@ const getEvent = async (req, res) => {
   try {
     const event = await Event.findById(req.params.id)
       .populate('club', 'name')
-      .populate('createdBy', 'firstName lastName');
+      .populate('createdBy', 'firstName lastName')
+      .populate('participants', 'firstName lastName email')
+      .populate('feedback.user', 'firstName lastName email');
     
     if (!event) {
       return res.status(404).json({ message: 'Event not found' });
@@ -116,7 +190,8 @@ const getEvent = async (req, res) => {
 
     res.json(event);
   } catch (error) {
-    res.status(400).json({ message: 'Error fetching event', error: error.message });
+    console.error('Error in getEvent:', error);
+    res.status(500).json({ message: 'Server error while fetching event' });
   }
 };
 
@@ -125,8 +200,8 @@ const updateEventStatus = async (req, res) => {
   try {
     const { status, approvalNotes } = req.body;
 
-    if (!['pending', 'approved', 'changes_requested'].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status' });
+    if (!['pending', 'approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status value' });
     }
 
     const event = await Event.findByIdAndUpdate(
@@ -136,7 +211,7 @@ const updateEventStatus = async (req, res) => {
         approvalNotes,
         updatedAt: Date.now()
       },
-      { new: true }
+      { new: true, runValidators: true }
     );
 
     if (!event) {
@@ -145,7 +220,11 @@ const updateEventStatus = async (req, res) => {
 
     res.json(event);
   } catch (error) {
-    res.status(400).json({ message: 'Error updating event status', error: error.message });
+    console.error('Error in updateEventStatus:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: 'Invalid status data', errors: Object.values(error.errors).map(err => err.message) });
+    }
+    res.status(500).json({ message: 'Server error while updating event status' });
   }
 };
 
