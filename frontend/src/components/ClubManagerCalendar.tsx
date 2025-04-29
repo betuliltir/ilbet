@@ -44,6 +44,7 @@ import {
   Pending as PendingIcon,
   ChangeCircle as ChangesRequestedIcon,
   Menu as MenuIcon,
+  LocationOn,
 } from '@mui/icons-material';
 import axios from 'axios';
 import dayjs, { Dayjs } from 'dayjs';
@@ -115,7 +116,7 @@ const ClubManagerCalendar: React.FC = () => {
     { text: 'Event Calendar', icon: <CalendarToday />, path: '/manager/calendar' },
     { text: 'Event Management', icon: <EditIcon />, path: '/events/manage' },
     { text: 'Club Membership', icon: <Group />, path: '/membership' },
-    { text: 'Feedback Form', icon: <Feedback />, path: '/feedback' },
+    { text: 'Garden Event Location', icon: <LocationOn />, path: '/garden-location' }
   ];
 
   const fetchEvents = useCallback(async () => {

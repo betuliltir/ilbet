@@ -17,11 +17,13 @@ import {
 import {
   CalendarToday,
   Group,
-  Feedback,
+  Edit,
+  LocationOn,
   ArrowForward,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
 interface AnnouncementType {
   _id: string;
@@ -57,6 +59,7 @@ const HomePage: React.FC = () => {
   const [events, setEvents] = useState<EventType[]>([]);
   const [news, setNews] = useState<NewsType[]>([]);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchHomeData = async () => {
@@ -75,9 +78,13 @@ const HomePage: React.FC = () => {
 
   const quickAccessLinks = [
     { text: 'Event Calendar', icon: <CalendarToday />, path: '/calendar' },
-    { text: 'Club Membership', icon: <Group />, path: '/membership' },
-    { text: 'Feedback Form', icon: <Feedback />, path: '/feedback' },
-    { text: 'Evaluation Forms', icon: <Feedback />, path: '/evaluation-forms' },
+    ...(user ? [
+      ...(user.role === 'clubManager' ? [
+        { text: 'Event Management', icon: <Edit />, path: '/events/manage' },
+        { text: 'Garden Event Location', icon: <LocationOn />, path: '/garden-location' }
+      ] : []),
+      { text: 'Club Membership', icon: <Group />, path: '/membership' }
+    ] : [])
   ];
 
   return (
