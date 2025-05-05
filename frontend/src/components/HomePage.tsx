@@ -20,6 +20,7 @@ import {
   Edit,
   LocationOn,
   ArrowForward,
+  Image, // Added for poster icon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -61,6 +62,12 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  // Debug logging for user data
+  useEffect(() => {
+    console.log("Current user in HomePage:", user);
+    console.log("User role:", user?.role);
+  }, [user]);
+
   useEffect(() => {
     const fetchHomeData = async () => {
       try {
@@ -81,7 +88,8 @@ const HomePage: React.FC = () => {
     ...(user ? [
       ...(user.role === 'clubManager' ? [
         { text: 'Event Management', icon: <Edit />, path: '/events/manage' },
-        { text: 'Garden Event Location', icon: <LocationOn />, path: '/garden-location' }
+        { text: 'Garden Event Location', icon: <LocationOn />, path: '/garden-location' },
+        { text: 'Poster Approval', icon: <Image />, path: '/club/posters' } // Added poster approval link
       ] : []),
       { text: 'Club Membership', icon: <Group />, path: '/membership' }
     ] : [])
@@ -113,9 +121,15 @@ const HomePage: React.FC = () => {
               ))}
             </Stack>
           </Box>
-          <Button variant="outlined" color="primary" onClick={() => navigate('/login')}>
-            Login
-          </Button>
+          {user ? (
+            <Button variant="outlined" color="primary" onClick={() => navigate('/profile')}>
+              Profile
+            </Button>
+          ) : (
+            <Button variant="outlined" color="primary" onClick={() => navigate('/login')}>
+              Login
+            </Button>
+          )}
         </Toolbar>
       </AppBar>
 

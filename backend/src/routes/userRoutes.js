@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
-const { authenticate } = require('../middleware/auth');
+const auth = require('../middleware/auth'); // Updated import
 const { authorize } = require('../middleware/authorize');
 
 // Get user by ID
-router.get('/:userId', authenticate, async (req, res) => {
+router.get('/:userId', auth, async (req, res) => {
   try {
     const user = await User.findById(req.params.userId)
       .select('-password')
@@ -23,7 +23,7 @@ router.get('/:userId', authenticate, async (req, res) => {
 });
 
 // Get all advisors (admin only)
-router.get('/advisors', authenticate, authorize(['admin']), async (req, res) => {
+router.get('/advisors', auth, authorize(['admin']), async (req, res) => {
   try {
     const advisors = await User.find({ role: 'clubAdvisor' })
       .select('firstName lastName email')
@@ -35,4 +35,4 @@ router.get('/advisors', authenticate, authorize(['admin']), async (req, res) => 
   }
 });
 
-module.exports = router; 
+module.exports = router;

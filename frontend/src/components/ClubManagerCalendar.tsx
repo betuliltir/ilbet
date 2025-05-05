@@ -45,6 +45,7 @@ import {
   ChangeCircle as ChangesRequestedIcon,
   Menu as MenuIcon,
   LocationOn,
+  Image as ImageIcon, // Added for Poster Approval
 } from '@mui/icons-material';
 import axios from 'axios';
 import dayjs, { Dayjs } from 'dayjs';
@@ -112,11 +113,34 @@ const ClubManagerCalendar: React.FC = () => {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
 
+  // Debug logging with additional checks
+  useEffect(() => {
+    console.log('ClubManagerCalendar - User from context:', user);
+    console.log('ClubManagerCalendar - User type from context:', user?.userType);
+    console.log('ClubManagerCalendar - User role from context:', user?.role);
+    console.log('ClubManagerCalendar - User role from localStorage:', localStorage.getItem('userRole'));
+    
+    // Store the role in localStorage to ensure consistency
+    if (user && (user.userType === 'clubManager')) {
+      localStorage.setItem('userRole', 'clubManager');
+    }
+  }, [user]);
+
+  // Check primarily for userType as that's what the backend sends
+  const isClubManager = 
+    user?.userType === 'clubManager' || 
+    user?.role === 'clubManager' || 
+    localStorage.getItem('userRole') === 'clubManager';
+  
+  // Updated quick access links with Poster Approval
   const quickAccessLinks = [
     { text: 'Event Calendar', icon: <CalendarToday />, path: '/manager/calendar' },
     { text: 'Event Management', icon: <EditIcon />, path: '/events/manage' },
     { text: 'Club Membership', icon: <Group />, path: '/membership' },
-    { text: 'Garden Event Location', icon: <LocationOn />, path: '/garden-location' }
+    ...(isClubManager ? [
+      { text: 'Garden Event Location', icon: <LocationOn />, path: '/garden-location' },
+      { text: 'Poster Approval', icon: <ImageIcon />, path: '/club/posters' }
+    ] : [])
   ];
 
   const fetchEvents = useCallback(async () => {
@@ -295,6 +319,8 @@ const ClubManagerCalendar: React.FC = () => {
   };
 
   const handleLogout = () => {
+    // Clear role information from localStorage
+    localStorage.removeItem('userRole');
     logout();
     navigate('/login');
   };
@@ -353,6 +379,17 @@ const ClubManagerCalendar: React.FC = () => {
             >
               Edit Event
             </Button>
+            {/* New Poster Approval button */}
+            {isClubManager && (
+              <Button
+                startIcon={<ImageIcon />}
+                variant="outlined"
+                color="primary"
+                onClick={() => navigate('/club/posters')}
+              >
+                Poster Approval
+              </Button>
+            )}
             <Typography variant="body1">
               Welcome, {user?.firstName} {user?.lastName}
             </Typography>
@@ -720,4 +757,4 @@ const ClubManagerCalendar: React.FC = () => {
   );
 };
 
-export default ClubManagerCalendar; 
+export default ClubManagerCalendar;

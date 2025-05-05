@@ -6,7 +6,8 @@ export interface User {
   firstName: string;
   lastName: string;
   email: string;
-  role: string;
+  role?: string;
+  userType?: string;
   club?: string; // Club ID for club managers
 }
 

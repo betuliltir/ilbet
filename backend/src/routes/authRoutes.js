@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Club = require('../models/Club');
-const { authenticate } = require('../middleware/auth');
+const auth = require('../middleware/auth'); // Updated import
 
 // Register user
 router.post('/register', async (req, res) => {
@@ -135,16 +135,10 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Get current user
-router.get('/me', async (req, res) => {
+// Get current user - using the standard auth middleware
+router.get('/me', auth, async (req, res) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return res.status(401).json({ message: 'No token, authorization denied' });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId)
+    const user = await User.findById(req.user.userId)
       .select('-password')
       .populate('club', 'name description');
 
@@ -159,4 +153,4 @@ router.get('/me', async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = router;

@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-const authenticate = async (req, res, next) => {
+const auth = async (req, res, next) => {
   try {
     // Get token from header
     const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -21,13 +21,11 @@ const authenticate = async (req, res, next) => {
     }
 
     // Add user to request
-    req.user = user;
+    req.user = decoded; // This is important: we want to keep just the decoded token info
     next();
   } catch (error) {
     res.status(401).json({ message: 'Token is invalid', error: error.message });
   }
 };
 
-module.exports = {
-  authenticate
-}; 
+module.exports = auth;

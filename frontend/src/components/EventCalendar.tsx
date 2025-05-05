@@ -48,6 +48,7 @@ import {
   AdminPanelSettings as AdminPanelSettingsIcon,
   Close as CloseIcon,
   LocationOn as LocationIcon,
+  Image as ImageIcon, // Added ImageIcon for Poster Approval
 } from '@mui/icons-material';
 import axios from 'axios';
 import dayjs, { Dayjs } from 'dayjs';
@@ -147,7 +148,8 @@ const EventCalendar: React.FC = () => {
     { text: 'Event Management', icon: <EditIcon />, path: '/events/manage' },
     { text: 'Club Membership', icon: <PeopleIcon />, path: '/membership' },
     ...(user?.role === 'clubManager' ? [
-      { text: 'Garden Event Location', icon: <LocationIcon />, path: '/garden-location' }
+      { text: 'Garden Event Location', icon: <LocationIcon />, path: '/garden-location' },
+      { text: 'Poster Approval', icon: <ImageIcon />, path: '/club/posters' } // Added Poster Approval link
     ] : [])
   ];
 
@@ -751,4 +753,4 @@ const EventCalendar: React.FC = () => {
   );
 };
 
-export default EventCalendar; 
+export default EventCalendar;

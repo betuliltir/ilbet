@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Club = require('../models/Club');
-const { authenticate } = require('../middleware/auth');
+const auth = require('../middleware/auth'); // Updated import
 const { authorize } = require('../middleware/authorize');
 
 // Get all clubs
@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
 });
 
 // Get club by ID
-router.get('/:id', authenticate, async (req, res) => {
+router.get('/:id', auth, async (req, res) => {
   try {
     const club = await Club.findById(req.params.id)
       .populate('members', 'firstName lastName email');
@@ -34,7 +34,7 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // Create new club (admin only)
-router.post('/', authenticate, authorize(['admin']), async (req, res) => {
+router.post('/', auth, authorize(['admin']), async (req, res) => {
   try {
     const { name, description } = req.body;
     
@@ -51,7 +51,7 @@ router.post('/', authenticate, authorize(['admin']), async (req, res) => {
 });
 
 // Update club (admin only)
-router.put('/:id', authenticate, authorize(['admin']), async (req, res) => {
+router.put('/:id', auth, authorize(['admin']), async (req, res) => {
   try {
     const club = await Club.findById(req.params.id);
     
@@ -72,7 +72,7 @@ router.put('/:id', authenticate, authorize(['admin']), async (req, res) => {
 });
 
 // Delete club (admin only)
-router.delete('/:id', authenticate, authorize(['admin']), async (req, res) => {
+router.delete('/:id', auth, authorize(['admin']), async (req, res) => {
   try {
     const club = await Club.findById(req.params.id);
     
@@ -88,7 +88,7 @@ router.delete('/:id', authenticate, authorize(['admin']), async (req, res) => {
 });
 
 // Add member to club (students can join)
-router.post('/:id/members/:userId', authenticate, async (req, res) => {
+router.post('/:id/members/:userId', auth, async (req, res) => {
   try {
     const { id, userId } = req.params;
     const club = await Club.findById(id);
@@ -116,7 +116,7 @@ router.post('/:id/members/:userId', authenticate, async (req, res) => {
 });
 
 // Remove member from club (admin or self)
-router.delete('/:id/members/:userId', authenticate, async (req, res) => {
+router.delete('/:id/members/:userId', auth, async (req, res) => {
   try {
     const { id, userId } = req.params;
     const club = await Club.findById(id)
@@ -148,4 +148,4 @@ router.delete('/:id/members/:userId', authenticate, async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = router;

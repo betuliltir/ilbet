@@ -21,6 +21,7 @@ import FeedbackPage from './components/FeedbackPage';
 import DemoFeedbackPage from './components/DemoFeedbackPage';
 import EvaluationFormsPage from './pages/EvaluationFormsPage';
 import GardenLocationPage from './pages/GardenLocationPage';
+import PosterApprovalPage from './pages/PosterApprovalPage'; // Updated import to use a page component
 
 const AppContent = () => {
   const { user } = useAuth();
@@ -166,6 +167,19 @@ const AppContent = () => {
           <PrivateRoute>
             {user?.role === 'clubManager' ? (
               <GardenLocationPage />
+            ) : (
+              <Navigate to="/" replace />
+            )}
+          </PrivateRoute>
+        }
+      />
+      {/* Add Poster Approval route */}
+      <Route
+        path="/club/posters"
+        element={
+          <PrivateRoute>
+            {user?.role === 'clubManager' ? (
+              <PosterApprovalPage />
             ) : (
               <Navigate to="/" replace />
             )}

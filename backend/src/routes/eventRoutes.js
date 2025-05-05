@@ -7,7 +7,7 @@ const {
   deleteEvent, 
   updateEventStatus 
 } = require('../controllers/eventController');
-const { authenticate } = require('../middleware/auth');
+const auth = require('../middleware/auth'); // Updated import
 const { authorize } = require('../middleware/authorize');
 const Event = require('../models/Event');
 const User = require('../models/User');
@@ -23,7 +23,7 @@ const validateEventId = (req, res, next) => {
 };
 
 // Special routes that don't use IDs should come BEFORE the :id route
-router.get('/manage', authenticate, authorize(['clubManager']), async (req, res) => {
+router.get('/manage', auth, authorize(['clubManager']), async (req, res) => {
   try {
     if (!req.user.club) {
       return res.status(400).json({ message: 'User is not associated with any club' });
@@ -43,10 +43,10 @@ router.get('/manage', authenticate, authorize(['clubManager']), async (req, res)
 });
 
 // Public routes (require authentication only)
-router.get('/', authenticate, getEvents);
+router.get('/', auth, getEvents);
 
 // Get event details by ID
-router.get('/:id', authenticate, validateEventId, async (req, res) => {
+router.get('/:id', auth, validateEventId, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id)
       .populate('club', 'name')
@@ -65,7 +65,7 @@ router.get('/:id', authenticate, validateEventId, async (req, res) => {
 });
 
 // Club manager routes with validation
-router.post('/', authenticate, authorize(['clubManager']), async (req, res) => {
+router.post('/', auth, authorize(['clubManager']), async (req, res) => {
   try {
     if (!req.user.club) {
       return res.status(400).json({ message: 'User is not associated with any club' });
@@ -77,7 +77,7 @@ router.post('/', authenticate, authorize(['clubManager']), async (req, res) => {
   }
 });
 
-router.put('/:id', authenticate, authorize(['clubManager']), validateEventId, async (req, res) => {
+router.put('/:id', auth, authorize(['clubManager']), validateEventId, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
     if (!event) {
@@ -93,7 +93,7 @@ router.put('/:id', authenticate, authorize(['clubManager']), validateEventId, as
   }
 });
 
-router.delete('/:id', authenticate, authorize(['clubManager']), validateEventId, async (req, res) => {
+router.delete('/:id', auth, authorize(['clubManager']), validateEventId, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
     if (!event) {
@@ -110,7 +110,7 @@ router.delete('/:id', authenticate, authorize(['clubManager']), validateEventId,
 });
 
 // Admin routes with validation
-router.patch('/:id/status', authenticate, authorize(['admin']), validateEventId, async (req, res) => {
+router.patch('/:id/status', auth, authorize(['admin']), validateEventId, async (req, res) => {
   try {
     const { status } = req.body;
     if (!['pending', 'approved', 'rejected'].includes(status)) {
@@ -124,7 +124,7 @@ router.patch('/:id/status', authenticate, authorize(['admin']), validateEventId,
 });
 
 // Get event participants with validation
-router.get('/:id/participants', authenticate, validateEventId, async (req, res) => {
+router.get('/:id/participants', auth, validateEventId, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id)
       .populate('participants', 'firstName lastName email');
@@ -141,7 +141,7 @@ router.get('/:id/participants', authenticate, validateEventId, async (req, res) 
 });
 
 // Join an event with validation
-router.post('/:id/participants', authenticate, validateEventId, async (req, res) => {
+router.post('/:id/participants', auth, validateEventId, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
     
@@ -164,7 +164,7 @@ router.post('/:id/participants', authenticate, validateEventId, async (req, res)
 });
 
 // Leave an event with validation
-router.delete('/:id/participants', authenticate, validateEventId, async (req, res) => {
+router.delete('/:id/participants', auth, validateEventId, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
     
@@ -190,7 +190,7 @@ router.delete('/:id/participants', authenticate, validateEventId, async (req, re
 });
 
 // Add feedback with validation
-router.post('/:id/feedback', authenticate, validateEventId, async (req, res) => {
+router.post('/:id/feedback', auth, validateEventId, async (req, res) => {
   try {
     const { rating, comment } = req.body;
     
@@ -231,7 +231,7 @@ router.post('/:id/feedback', authenticate, validateEventId, async (req, res) => 
 });
 
 // Get feedback with validation
-router.get('/:id/feedback', authenticate, validateEventId, async (req, res) => {
+router.get('/:id/feedback', auth, validateEventId, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id)
       .populate('feedback.user', 'firstName lastName email');
@@ -247,4 +247,4 @@ router.get('/:id/feedback', authenticate, validateEventId, async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = router;
